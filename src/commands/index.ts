@@ -5,7 +5,11 @@ import {
 
 import { ISessionContext, ISessionContextDialogs } from '@jupyterlab/apputils';
 
-import { INotebookTracker, Notebook, NotebookActions } from '@jupyterlab/notebook';
+import {
+  INotebookTracker,
+  Notebook,
+  NotebookActions
+} from '@jupyterlab/notebook';
 
 import { ITranslator } from '@jupyterlab/translation';
 
@@ -36,6 +40,7 @@ export const commands: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, notebookTracker: INotebookTracker) => {
+    console.log('execute below');
     const commandID = '@mljar/mercury-execute-below';
     app.commands.addCommand(commandID, {
       label: 'Execute cells below',
