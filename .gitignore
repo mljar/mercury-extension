@@ -7,9 +7,9 @@ node_modules/
 *.egg-info/
 .ipynb_checkpoints
 *.tsbuildinfo
-mercuryextension/labextension
+mercury_app/labextension
 # Version file is handled by hatchling
-mercuryextension/_version.py
+mercury_app/_version.py
 
 # Integration tests
 ui-tests/test-results/

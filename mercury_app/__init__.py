@@ -1,3 +1,6 @@
+from .app import MercuryApp
+from .serverextension import _load_jupyter_server_extension
+
 try:
     from ._version import __version__
 except ImportError:
@@ -5,7 +8,7 @@ except ImportError:
     # in editable mode with pip. It is highly recommended to install
     # the package from a stable release or in editable mode: https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs
     import warnings
-    warnings.warn("Importing 'mercuryextension' outside a proper installation.")
+    warnings.warn("Importing 'mercury_app' outside a proper installation.")
     __version__ = "dev"
 
 
@@ -13,4 +16,11 @@ def _jupyter_labextension_paths():
     return [{
         "src": "labextension",
         "dest": "@mljar/mercuryextension"
+    }]
+
+
+def _jupyter_server_extension_points():
+    return [{
+        "module": "mercury_app",
+        "app": MercuryApp
     }]

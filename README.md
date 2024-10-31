@@ -9,7 +9,7 @@ Develop web apps from Python notebooks with Mercury directly in JupyterLab.
 To install the extension, execute:
 
 ```bash
-pip install mercuryextension
+pip install mercury_app
 ```
 
 ## Uninstall
@@ -17,6 +17,6 @@ pip install mercuryextension
 To remove the extension, execute:
 
 ```bash
-pip uninstall mercuryextension
+pip uninstall mercury_app
 ```
 
