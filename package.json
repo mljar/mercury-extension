@@ -28,9 +28,9 @@
         "url": "https://github.com/mljar/mercury-extension.git"
     },
     "scripts": {
-        "build": "yarn workspaces foreach -Apt run build",
-        "build:prod": "yarn workspaces foreach -Apt run build:prod",
-        "clean": "yarn workspaces foreach -Apt run clean",
+        "build": "jlpm workspaces foreach -Apt run build",
+        "build:prod": "jlpm workspaces foreach -Apt run build:prod",
+        "clean": "jlpm workspaces foreach -Apt run clean",
         "eslint": "jlpm eslint:check --fix",
         "eslint:check": "eslint . --cache --ext .ts,.tsx",
         "lint": "jlpm stylelint && jlpm prettier && jlpm eslint",
@@ -41,8 +41,8 @@
         "stylelint": "jlpm stylelint:check --fix",
         "stylelint:check": "stylelint --cache \"packages/*/style/**/*.css\"",
         "watch": "run-p watch:lib watch:app",
-        "watch:app": "yarn workspaces foreach --include \"mercury-app\" run watch",
-        "watch:lib": "yarn workspaces foreach -p --include \"mercury-application\" --include \"@mljar/mercuryextension\" run watch"
+        "watch:app": "jlpm workspaces foreach --include \"mercury-app\" run watch",
+        "watch:lib": "jlpm workspaces foreach -p --include \"mercury-application\" --include \"@mljar/mercuryextension\" run watch"
     },
     "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^6.1.0",

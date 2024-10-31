@@ -122,4 +122,5 @@ dmypy.json
 .DS_Store
 
 # Yarn cache
-.yarn/
+.yarn/*
+!.yarn/plugins
