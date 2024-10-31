@@ -25,6 +25,8 @@ version = __version__
 
 
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
+    """Render the Mercury app."""
+
     def get_page_config(self, notebook_path: Optional[str] = None):
         config = LabConfig()
         app = self.extensionapp
@@ -75,10 +77,15 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
         return page_config
 
     @web.authenticated
-    def get(self, path: str = None):
-        nb_path = Path(path)
-        if not nb_path.is_file() or nb_path.suffix != ".ipynb":
-            raise web.HTTPError(404, f"Only Jupyter Notebook can be opened with Mercury; got {path}")
+    async def get(self, path: str = None):
+        if not (
+            path
+            and self.serverapp.contents_manager.file_exists(path)
+            and Path(path).suffix == ".ipynb"
+        ):
+            raise web.HTTPError(
+                404, f"Only Jupyter Notebook can be opened with Mercury; got {path}"
+            )
 
         return self.write(
             self.render_template(
@@ -110,7 +117,7 @@ class MercuryApp(LabServerApp):
     subcommands = {}
 
     def initialize_handlers(self):
-        self.handlers.append((f"/mercury{path_regex}", MercuryApp))
+        self.handlers.append((f"/mercury{path_regex}", MercuryHandler))
         super().initialize_handlers()
 
     def initialize_templates(self):

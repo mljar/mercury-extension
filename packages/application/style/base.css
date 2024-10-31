@@ -1,1 +1,7 @@
 @import url('~@jupyterlab/theme-light-extension/style/theme.css');
+
+#main {
+  position: absolute;
+  inset: 0;
+  background-color: var(--jp-layout-color0);
+}
