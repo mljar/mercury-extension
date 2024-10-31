@@ -12,6 +12,8 @@
     "watch": "webpack --config ./webpack.config.watch.js"
   },
   "resolutions": {
+    "@jupyter-widgets/base": "^6.0.6",
+    "@jupyter-widgets/jupyterlab-manager": "^5.0.9",
     "@jupyterlab/application-extension": "^4.0.0",
     "@jupyterlab/apputils-extension": "^4.0.0",
     "@jupyterlab/codemirror-extension": "^4.0.0",
@@ -40,6 +42,7 @@
     "yjs": "~13.5.10"
   },
   "dependencies": {
+    "@jupyter-widgets/jupyterlab-manager": "^5.0.9",
     "@jupyterlab/application-extension": "^4.0.0",
     "@jupyterlab/apputils-extension": "^4.0.0",
     "@jupyterlab/codemirror-extension": "^4.0.0",
@@ -76,6 +79,7 @@
   "jupyterlab": {
     "name": "Mercury",
     "extensions": [
+      "@jupyter-widgets/jupyterlab-manager",
       "@jupyterlab/application-extension",
       "@jupyterlab/apputils-extension",
       "@jupyterlab/codemirror-extension",
@@ -92,7 +96,7 @@
       "@jupyterlab/translation-extension",
       "@jupyterlab/vega5-extension",
       "mercury-application",
-      "mercury"
+      "@mljar/mercuryextension"
     ],
     "singletonPackages": [
       "@jupyterlab/application",

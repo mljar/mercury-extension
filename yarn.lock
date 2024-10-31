@@ -11308,6 +11308,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "mercury-app@workspace:app"
   dependencies:
+    "@jupyter-widgets/jupyterlab-manager": ^5.0.9
     "@jupyterlab/application-extension": ^4.0.0
     "@jupyterlab/apputils-extension": ^4.0.0
     "@jupyterlab/builder": ^4.0.0

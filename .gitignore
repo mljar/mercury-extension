@@ -10,6 +10,8 @@ node_modules/
 mercury_app/labextension
 # Version file is handled by hatchling
 mercury_app/_version.py
+mercury_app/schemas
+mercury_app/static
 
 # Integration tests
 ui-tests/test-results/
