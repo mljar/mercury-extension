@@ -9,7 +9,7 @@ from jupyter_server.extension.handler import (
     ExtensionHandlerJinjaMixin,
     ExtensionHandlerMixin,
 )
-from jupyter_server.utils import url_path_join as ujoin
+from jupyter_server.utils import ensure_async, url_path_join as ujoin
 from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspaces_dir
 from jupyterlab_server import LabServerApp
 from jupyterlab_server.config import get_page_config, recursive_update, LabConfig
@@ -80,7 +80,7 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
     async def get(self, path: str = None):
         if not (
             path
-            and self.serverapp.contents_manager.file_exists(path)
+            and await ensure_async(self.serverapp.contents_manager.file_exists(path))
             and Path(path).suffix == ".ipynb"
         ):
             message = (
