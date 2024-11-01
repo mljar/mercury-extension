@@ -2,8 +2,11 @@
 
 import { PageConfig, URLExt } from '@jupyterlab/coreutils';
 
-require('./style.js');
-require('./extraStyle.js');
+// Trick to include package required by ipywidgets in the webpack shared scope.
+import '@jupyterlab/console';
+
+import './style';
+import './extraStyle';
 
 function loadScript(url) {
   return new Promise((resolve, reject) => {
@@ -43,13 +46,13 @@ async function createModule(scope, module) {
  * The main function
  */
 async function main() {
-  const mercury = require('mercury-application');
+  const mercury = await import('mercury-application');
 
   const mimeExtensionsMods = [
-    require('@jupyterlab/javascript-extension'),
-    require('@jupyterlab/json-extension'),
-    require('@jupyterlab/pdf-extension'),
-    require('@jupyterlab/vega5-extension')
+    import('@jupyterlab/javascript-extension'),
+    import('@jupyterlab/json-extension'),
+    import('@jupyterlab/pdf-extension'),
+    import('@jupyterlab/vega5-extension')
   ];
   const mimeExtensions = await Promise.all(mimeExtensionsMods);
 
@@ -60,57 +63,67 @@ async function main() {
     mercury.default,
 
     // @jupyterlab plugins
-    require('@jupyterlab/application-extension').default.filter(({ id }) =>
-      [
-        '@jupyterlab/application-extension:commands',
-        '@jupyterlab/application-extension:context-menu'
-      ].includes(id)
+    import('@jupyterlab/application-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        [
+          '@jupyterlab/application-extension:commands',
+          '@jupyterlab/application-extension:context-menu'
+        ].includes(id)
+      )
     ),
-    require('@jupyterlab/apputils-extension').default.filter(({ id }) =>
-      [
-        '@jupyterlab/apputils-extension:palette',
-        '@jupyter/apputils-extension:sanitizer',
-        '@jupyterlab/apputils-extension:settings',
-        '@jupyterlab/apputils-extension:splash',
-        '@jupyterlab/apputils-extension:sessionDialogs',
-        '@jupyterlab/apputils-extension:toolbar-registry'
-        // Theming removed - light theme CSS directly imported in packages/application/style/base.css
-        // '@jupyterlab/apputils-extension:themes'
-      ].includes(id)
+    import('@jupyterlab/apputils-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        [
+          '@jupyterlab/apputils-extension:palette',
+          '@jupyter/apputils-extension:sanitizer',
+          '@jupyterlab/apputils-extension:settings',
+          '@jupyterlab/apputils-extension:sessionDialogs',
+          // Theming removed - light theme CSS directly imported in packages/application/style/base.css
+          // '@jupyterlab/apputils-extension:themes',
+          '@jupyterlab/apputils-extension:toolbar-registry'
+        ].includes(id)
+      )
     ),
-    require('@jupyterlab/codemirror-extension').default.filter(({ id }) =>
-      [
-        '@jupyterlab/codemirror-extension:services',
-        '@jupyterlab/codemirror-extension:binding',
-        '@jupyterlab/codemirror-extension:codemirror',
-        '@jupyterlab/codemirror-extension:languages',
-        '@jupyterlab/codemirror-extension:extensions',
-        '@jupyterlab/codemirror-extension:themes'
-      ].includes(id)
+    import('@jupyterlab/codemirror-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        [
+          '@jupyterlab/codemirror-extension:services',
+          '@jupyterlab/codemirror-extension:binding',
+          '@jupyterlab/codemirror-extension:codemirror',
+          '@jupyterlab/codemirror-extension:languages',
+          '@jupyterlab/codemirror-extension:extensions',
+          '@jupyterlab/codemirror-extension:themes'
+        ].includes(id)
+      )
     ),
-    require('@jupyterlab/docmanager-extension').default.filter(({ id }) =>
-      [
-        '@jupyterlab/docmanager-extension:plugin',
-        '@jupyterlab/docmanager-extension:manager',
-        '@jupyterlab/docmanager-extension:opener'
-      ].includes(id)
+    import('@jupyterlab/docmanager-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        [
+          '@jupyterlab/docmanager-extension:plugin',
+          '@jupyterlab/docmanager-extension:manager',
+          '@jupyterlab/docmanager-extension:opener'
+        ].includes(id)
+      )
     ),
-    require('@jupyterlab/mathjax-extension'),
-    require('@jupyterlab/markedparser-extension'),
-    require('@jupyterlab/notebook-extension').default.filter(({ id }) =>
-      [
-        '@jupyterlab/notebook-extension:factory',
-        '@jupyterlab/notebook-extension:tracker',
-        '@jupyterlab/notebook-extension:widget-factory'
-      ].includes(id)
+    import('@jupyterlab/mathjax-extension'),
+    import('@jupyterlab/markedparser-extension'),
+    import('@jupyterlab/notebook-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        [
+          '@jupyterlab/notebook-extension:factory',
+          '@jupyterlab/notebook-extension:tracker',
+          '@jupyterlab/notebook-extension:widget-factory'
+        ].includes(id)
+      )
     ),
-    require('@jupyterlab/rendermime-extension'),
-    require('@jupyterlab/shortcuts-extension'),
-    // require('@jupyterlab/theme-light-extension'),
-    require('@jupyterlab/translation-extension').default.filter(({ id }) =>
-      ['@jupyterlab/translation:translator'].includes(id)
-    ),
-    require("@jupyter-widgets/jupyterlab-manager")
+    import('@jupyterlab/rendermime-extension'),
+    import('@jupyterlab/shortcuts-extension'),
+    // import('@jupyterlab/theme-light-extension'),
+    import('@jupyterlab/translation-extension').then(mod =>
+      mod.default.filter(({ id }) =>
+        ['@jupyterlab/translation:translator'].includes(id)
+      )
+    )
   ];
 
   /**

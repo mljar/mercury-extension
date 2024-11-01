@@ -57,18 +57,26 @@
     "dependencies": {
         "@jupyter-widgets/base": "^6.0.6",
         "@jupyter-widgets/jupyterlab-manager": "^5.0.9",
+        "@jupyter/ydoc": "^1.0.0 || ^ 2.0.0 || ^3.0.0",
         "@jupyterlab/application": "^4.0.0",
         "@jupyterlab/apputils": "^4.0.0",
         "@jupyterlab/cells": "^4.0.0",
         "@jupyterlab/codeeditor": "^4.0.0",
         "@jupyterlab/docregistry": "^4.0.0",
-        "@jupyterlab/mainmenu": "^4.0.0",
         "@jupyterlab/notebook": "^4.0.0",
         "@jupyterlab/outputarea": "^4.0.0",
         "@jupyterlab/rendermime": "^4.0.0",
+        "@jupyterlab/services": "^7.0.0",
+        "@jupyterlab/translation": "^4.0.0",
+        "@jupyterlab/ui-components": "^4.0.0",
+        "@lumino/algorithm": "^2.0.0",
+        "@lumino/commands": "^2.0.0",
+        "@lumino/coreutils": "^2.0.0",
+        "@lumino/disposable": "^2.0.0",
         "@lumino/messaging": "^2.0.1",
         "@lumino/signaling": "^2.0.0",
-        "@lumino/widgets": "^2.0.0"
+        "@lumino/widgets": "^2.0.0",
+        "yjs": "^13.5.40"
     },
     "devDependencies": {
         "@jupyterlab/builder": "^4.1.0",

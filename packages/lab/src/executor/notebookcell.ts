@@ -1,21 +1,19 @@
-import { Dialog } from '@jupyterlab/apputils';
-
-import { KernelMessage } from '@jupyterlab/services';
-import { showDialog } from '@jupyterlab/apputils';
+import { Dialog, showDialog } from '@jupyterlab/apputils';
 import {
   Cell,
   CodeCell,
   ICodeCellModel,
   type MarkdownCell
 } from '@jupyterlab/cells';
+import { KernelMessage } from '@jupyterlab/services';
 import { nullTranslator } from '@jupyterlab/translation';
 
-import { findIndex } from '@lumino/algorithm';
 import {
   INotebookCellExecutor,
   INotebookModel,
   KernelError
 } from '@jupyterlab/notebook';
+import { findIndex } from '@lumino/algorithm';
 
 import { codeCellExecute } from './codecell';
 

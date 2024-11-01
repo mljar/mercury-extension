@@ -30,16 +30,20 @@ function* widgetRenderers(
 export const widgets: JupyterFrontEndPlugin<void> = {
   id: '@mljar/mercury-extension:support-ipywidgets',
   autoStart: true,
-  optional: [IMercuryTracker, IJupyterWidgetRegistry],
+  requires: [IMercuryTracker],
+  optional: [IJupyterWidgetRegistry],
   activate: (
     app: JupyterFrontEnd,
-    mercuryTracker: IMercuryTracker | null,
+    mercuryTracker: IMercuryTracker,
     widgetRegistry: IJupyterWidgetRegistry | null
   ) => {
     if (!widgetRegistry) {
+      console.info(
+        'Jupyter widgets are not available. Please install `jupyterlab_widgets` Python package to add support for rendering Jupyter widgets.'
+      );
       return;
     }
-    mercuryTracker?.forEach(widget => {
+    mercuryTracker.forEach(widget => {
       registerWidgetManager(
         widget.context,
         widget.content.rendermime,
@@ -47,7 +51,7 @@ export const widgets: JupyterFrontEndPlugin<void> = {
       );
     });
 
-    mercuryTracker?.widgetAdded.connect((sender, widget) => {
+    mercuryTracker.widgetAdded.connect((sender, widget) => {
       registerWidgetManager(
         widget.context,
         widget.content.rendermime,

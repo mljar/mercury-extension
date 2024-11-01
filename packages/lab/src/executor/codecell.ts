@@ -1,9 +1,8 @@
 import { ISessionContext } from '@jupyterlab/apputils';
 
-import { JSONObject } from '@lumino/coreutils';
-import { Kernel } from '@jupyterlab/services';
-import { KernelMessage } from '@jupyterlab/services';
 import { CodeCell } from '@jupyterlab/cells';
+import { Kernel, KernelMessage } from '@jupyterlab/services';
+import { JSONObject } from '@lumino/coreutils';
 
 import { outputAreaExecute } from './outputArea';
 

@@ -10,7 +10,7 @@ import { plugin } from './mercury';
  * The default paths for Mercury app.
  */
 const paths: JupyterFrontEndPlugin<JupyterFrontEnd.IPaths> = {
-  id: 'mercury-extension:paths',
+  id: 'mercury-application:paths',
   autoStart: true,
   provides: JupyterFrontEnd.IPaths,
   activate: (app: JupyterFrontEnd): JupyterFrontEnd.IPaths => {

@@ -1,9 +1,8 @@
 import { ISessionContext } from '@jupyterlab/apputils';
 
-import { JSONObject } from '@lumino/coreutils';
-import { Kernel } from '@jupyterlab/services';
 import { OutputArea } from '@jupyterlab/outputarea';
-import { KernelMessage } from '@jupyterlab/services';
+import { Kernel, KernelMessage } from '@jupyterlab/services';
+import { JSONObject } from '@lumino/coreutils';
 
 export async function outputAreaExecute(
   code: string,
