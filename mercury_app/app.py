@@ -83,8 +83,24 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             and self.serverapp.contents_manager.file_exists(path)
             and Path(path).suffix == ".ipynb"
         ):
-            raise web.HTTPError(
-                404, f"Only Jupyter Notebook can be opened with Mercury; got {path}"
+            message = (
+                f"Only Jupyter Notebook can be opened with Mercury; got {path}"
+                if path
+                else "No Jupyter Notebook specified."
+            )
+            return self.write(
+                self.render_template(
+                    "error.html",
+                    default_url="https://runmercury.com/",
+                    static=self.static_url,
+                    page_title="Mercury",
+                    status_code=404,
+                    status_message=message,
+                    advices=[
+                        "You must provide a valid Jupyter Notebook path as argument of the application:",
+                        "python -m mercury_app <path/to/notebook.ipynb>",
+                    ],
+                )
             )
 
         return self.write(
