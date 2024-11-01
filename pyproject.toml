@@ -40,8 +40,8 @@ artifacts = ["mercury_app/labextension", "mercury_app/schemas", "mercury_app/sta
 exclude = [".github", "binder"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"mercury_app/labextension" = "share/jupyter/labextensions/@mljar/mercuryextension"
-"install.json" = "share/jupyter/labextensions/@mljar/mercuryextension/install.json"
+"mercury_app/labextension" = "share/jupyter/labextensions/@mljar/mercury-extension"
+"install.json" = "share/jupyter/labextensions/@mljar/mercury-extension/install.json"
 "jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
 
 [tool.hatch.build.hooks.version]

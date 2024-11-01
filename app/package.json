@@ -96,7 +96,7 @@
       "@jupyterlab/translation-extension",
       "@jupyterlab/vega5-extension",
       "mercury-application",
-      "@mljar/mercuryextension"
+      "@mljar/mercury-extension"
     ],
     "singletonPackages": [
       "@jupyterlab/application",

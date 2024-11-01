@@ -28,7 +28,7 @@ function* widgetRenderers(
  * A plugin to add support for rendering Jupyter Widgets.
  */
 export const widgets: JupyterFrontEndPlugin<void> = {
-  id: '@mljar/mercury-support-ipywidgets',
+  id: '@mljar/mercury-extension:support-ipywidgets',
   autoStart: true,
   optional: [IMercuryTracker, IJupyterWidgetRegistry],
   activate: (

@@ -8,8 +8,17 @@ import { commands } from './commands';
 
 import { notebookCellExecutor } from './executor';
 
-export { MercuryWidgetFactory } from './mercury/factory';
+export {
+  IMercuryTracker,
+  MercuryWidget,
+  MercuryWidgetFactory
+} from './mercury';
 
-const plugins: JupyterFrontEndPlugin<any>[] = [mercury, widgets, commands, notebookCellExecutor];
+const plugins: JupyterFrontEndPlugin<any>[] = [
+  mercury,
+  widgets,
+  commands,
+  notebookCellExecutor
+];
 
 export default plugins;

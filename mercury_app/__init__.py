@@ -15,7 +15,7 @@ except ImportError:
 def _jupyter_labextension_paths():
     return [{
         "src": "labextension",
-        "dest": "@mljar/mercuryextension"
+        "dest": "@mljar/mercury-extension"
     }]
 
 

@@ -35,7 +35,7 @@ function runAllBelow(
   });
 }
 export const commands: JupyterFrontEndPlugin<void> = {
-  id: '@mljar/mercury-commands',
+  id: '@mljar/mercury-extension:commands',
   description: 'Commands used in Mercury',
   autoStart: true,
   requires: [INotebookTracker],

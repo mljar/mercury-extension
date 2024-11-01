@@ -12,21 +12,21 @@ import { IEditorServices } from '@jupyterlab/codeeditor';
 
 import { WidgetTracker } from '@jupyterlab/apputils';
 
-import { IMainMenu } from '@jupyterlab/mainmenu';
-
 import { MercuryWidgetFactory } from './factory';
 
 import { IMercuryTracker, MercuryWidget } from './widget';
 
 import { OpenMercuryButton } from './toolbar/button';
 
+export * from './factory';
+export * from './widget';
+
 export const mercury: JupyterFrontEndPlugin<IMercuryTracker> = {
-  id: '@mljar:mercury-extension',
+  id: '@mljar:mercury-extension:factory',
   autoStart: true,
   provides: IMercuryTracker,
   requires: [
     NotebookPanel.IContentFactory,
-    IMainMenu,
     IEditorServices,
     IRenderMimeRegistry
   ],
@@ -34,13 +34,12 @@ export const mercury: JupyterFrontEndPlugin<IMercuryTracker> = {
   activate: (
     app: JupyterFrontEnd,
     contentFactory: NotebookPanel.IContentFactory,
-    mainMenu: IMainMenu,
     editorServices: IEditorServices,
     rendermime: IRenderMimeRegistry
   ) => {
     console.log('Mercury extension is active.');
     const tracker = new WidgetTracker<MercuryWidget>({
-      namespace: '@mljar/mercury-widget-tracker'
+      namespace: '@mljar/mercury-extension:widget-tracker'
     });
 
     const factory = new MercuryWidgetFactory({

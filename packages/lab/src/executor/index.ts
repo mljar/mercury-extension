@@ -9,7 +9,7 @@ import { NotebookCellExecutor } from './notebookcell';
 
 export const notebookCellExecutor: JupyterFrontEndPlugin<INotebookCellExecutor> =
   {
-    id: '@mljar:notebook-cell-executor',
+    id: '@mljar/mercury-extension:notebook-cell-executor',
     description: 'Mercury cell executor',
     autoStart: true,
     provides: INotebookCellExecutor,

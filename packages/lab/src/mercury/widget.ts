@@ -32,5 +32,5 @@ export interface IMercuryTracker extends IWidgetTracker<MercuryWidget> {}
  * The Mercury tracker token.
  */
 export const IMercuryTracker = new Token<IMercuryTracker>(
-  '@mljar:IMercuryTracker'
+  '@mljar/mercury-extension:IMercuryTracker'
 );
