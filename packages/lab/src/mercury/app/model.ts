@@ -255,6 +255,7 @@ export class AppModel {
       contentFactory: this.contentFactory,
       editorConfig: this._editorConfig.code
     });
+    cell.trusted = true;
 
     SimplifiedOutputArea.execute(
       cell.sharedModel.source,

@@ -9,6 +9,7 @@ import { commands } from './commands';
 import { notebookCellExecutor } from './executor';
 
 export {
+  AppWidget,
   IMercuryTracker,
   MercuryWidget,
   MercuryWidgetFactory

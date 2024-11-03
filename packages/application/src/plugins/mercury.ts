@@ -4,9 +4,9 @@ import {
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
 import { IEditorLanguageRegistry } from '@jupyterlab/codemirror';
-import { PageConfig } from '@jupyterlab/coreutils';
+import { PageConfig, signalToPromise } from '@jupyterlab/coreutils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
-import { MercuryWidget } from '@mljar/mercury-extension';
+import { AppWidget, MercuryWidget } from '@mljar/mercury-extension';
 
 /**
  * Open the notebook with Mercury.
@@ -33,6 +33,39 @@ export const plugin: JupyterFrontEndPlugin<void> = {
 
       mercuryPanel.context.ready.then(async () => {
         // await languages.getLanguage(mercuryPanel.content.codeMimetype);
+
+        let session = mercuryPanel.context.sessionContext.session;
+
+        if (!session) {
+          const [, changes] = await signalToPromise(
+            mercuryPanel.context.sessionContext.sessionChanged
+          );
+          session = changes.newValue!;
+        }
+
+        let kernelConnection = session?.kernel;
+
+        if (!kernelConnection) {
+          const [, changes] = await signalToPromise(session.kernelChanged);
+          kernelConnection = changes.newValue!;
+        }
+
+        const executeAll = () => {
+          if (
+            kernelConnection?.connectionStatus === 'connected' &&
+            kernelConnection.status === 'idle'
+          ) {
+            kernelConnection.connectionStatusChanged.disconnect(executeAll);
+            kernelConnection.statusChanged.disconnect(executeAll);
+
+            (mercuryPanel.content.widgets[0] as AppWidget).executeCellItems();
+          }
+        };
+
+        //
+        kernelConnection?.connectionStatusChanged.connect(executeAll);
+        kernelConnection?.statusChanged.connect(executeAll);
+        executeAll();
       });
 
       // Remove the toolbar - fail due to the dynamic load of the toolbar items

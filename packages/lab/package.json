@@ -79,7 +79,7 @@
         "yjs": "^13.5.40"
     },
     "devDependencies": {
-        "@jupyterlab/builder": "^4.1.0",
+        "@jupyterlab/builder": "^4.0.0",
         "@jupyterlab/testutils": "^4.0.0",
         "@types/jest": "^29.2.0",
         "@types/json-schema": "^7.0.11",
