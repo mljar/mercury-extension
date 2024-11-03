@@ -76,6 +76,7 @@ async function main() {
         [
           '@jupyterlab/apputils-extension:palette',
           '@jupyter/apputils-extension:sanitizer',
+          '@jupyterlab/apputils-extension:sanitizer',
           '@jupyterlab/apputils-extension:settings',
           '@jupyterlab/apputils-extension:sessionDialogs',
           // Theming removed - light theme CSS directly imported in packages/application/style/base.css

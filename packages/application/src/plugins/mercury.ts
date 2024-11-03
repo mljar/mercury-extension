@@ -6,7 +6,7 @@ import {
 import { IEditorLanguageRegistry } from '@jupyterlab/codemirror';
 import { PageConfig, signalToPromise } from '@jupyterlab/coreutils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
-import { AppWidget, MercuryWidget } from '@mljar/mercury-extension';
+import { type AppWidget, type MercuryWidget } from '@mljar/mercury-extension';
 
 /**
  * Open the notebook with Mercury.
@@ -15,7 +15,6 @@ export const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mercury-application:opener',
   autoStart: true,
   requires: [IDocumentManager, IEditorLanguageRegistry],
-  optional: [],
   activate: (
     app: JupyterFrontEnd,
     documentManager: IDocumentManager,
