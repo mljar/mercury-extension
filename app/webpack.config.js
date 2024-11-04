@@ -156,17 +156,13 @@ const entryPoint = path.join(buildDir, 'bootstrap.js');
 const bootstrap = 'import("./index.js");';
 fs.writeFileSync(entryPoint, bootstrap);
 
-if (process.env.NODE_ENV === 'production') {
-  baseConfig.mode = 'production';
-}
-
 if (process.argv.includes('--analyze')) {
   extras.push(new BundleAnalyzerPlugin());
 }
 
 module.exports = [
   merge(baseConfig, {
-    mode: 'development',
+    mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     entry: ['./publicpath.js', './' + path.relative(__dirname, entryPoint)],
     output: {
       path: path.resolve(__dirname, '..', 'mercury_app/static/'),
@@ -187,6 +183,16 @@ module.exports = [
         name: 'CORE_FEDERATION',
         shared: createShared(data)
       })
-    ]
+    ],
+    module: {
+      rules: [
+        {
+          test: /\.js$/,
+          use: ['source-map-loader'],
+          enforce: 'pre',
+          include: [path.resolve(__dirname, '..', 'packages')]
+        }
+      ]
+    }
   })
 ].concat(extras);
