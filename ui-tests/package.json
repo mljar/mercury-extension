@@ -1,6 +1,6 @@
 {
   "name": "@mljar/mercury-extension-ui-tests",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "JupyterLab @mljar/mercury-extension Integration Tests",
   "private": true,
   "scripts": {

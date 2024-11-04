@@ -67,13 +67,9 @@ source_dir = "src"
 build_dir = "mercury_app/labextension"
 
 [tool.jupyter-releaser.options]
-version-cmd = "python scripts/bump_version.py --force"
+version-cmd = "npm version --workspaces --include-workspace-root --workspaces-update false --git-tag-version false"
 
 [tool.jupyter-releaser.hooks]
-before-bump-version = [
-    "python -m pip install 'jupyterlab>=4.0.0,<5'",
-    "jlpm"
-]
 before-build-npm = [
     "python -m pip install 'jupyterlab>=4.0.0,<5'",
     "jlpm",
