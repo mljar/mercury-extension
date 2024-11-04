@@ -125,7 +125,9 @@ async function main() {
   ];
 
   // Trick to include package required by ipywidgets in the webpack shared scope.
-  import('@jupyterlab/console').catch((reason) => {console.error('Failed to import @jupyterlab/console', reason)});
+  import('@jupyterlab/console').catch(reason => {
+    console.error('Failed to import @jupyterlab/console', reason);
+  });
 
   /**
    * Iterate over active plugins in an extension.

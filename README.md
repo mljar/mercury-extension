@@ -19,4 +19,3 @@ To remove the extension, execute:
 ```bash
 pip uninstall mercury_app
 ```
-
