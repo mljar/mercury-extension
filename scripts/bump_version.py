@@ -39,14 +39,19 @@ def bump(force: bool, spec: str) -> None:
         raise Exception("Must be in a clean git state with no untracked files")
 
     run(
-        [sys.executable, "-m", "hatch", "version", spec], cwd=HERE, encoding="utf-8", check=True
+        [sys.executable, "-m", "hatch", "version", spec],
+        cwd=HERE,
+        encoding="utf-8",
+        check=True,
     )
 
     version = parse(
         # Output maybe multi-lines if build dependencies needs to be installed.
         check_output(
             [sys.executable, "-m", "hatch", "version"], cwd=HERE, encoding="utf-8"
-        ).strip("\n").split("\n")[-1]
+        )
+        .strip("\n")
+        .split("\n")[-1]
     )
 
     # convert the Python version
@@ -76,6 +81,7 @@ def bump(force: bool, spec: str) -> None:
         raise FileNotFoundError(f"Could not find package.json under dir {path!s}")
 
     run(["jlpm", "run", "lint"])
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("bump_version", "Bump package version")
