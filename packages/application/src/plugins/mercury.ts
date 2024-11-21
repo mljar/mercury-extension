@@ -20,9 +20,6 @@ export const plugin: JupyterFrontEndPlugin<void> = {
     documentManager: IDocumentManager,
     languages: IEditorLanguageRegistry
   ) => {
-    // Uncomment in dev mode to send logs to the parent window
-    //Private.setupLog();
-
     Promise.all([app.started, app.restored]).then(async ([settings]) => {
       const notebookPath = PageConfig.getOption('notebookPath');
       const mercuryPanel = documentManager.open(
@@ -75,50 +72,3 @@ export const plugin: JupyterFrontEndPlugin<void> = {
     });
   }
 };
-
-// @ts-expect-error 'Private' may never be read
-namespace Private {
-  export function setupLog(): void {
-    const _debug = console.debug;
-    const _info = console.info;
-    const _warn = console.warn;
-    const _error = console.error;
-
-    function post(payload: any) {
-      try {
-        window.top?.postMessage(payload, '/');
-      } catch (err) {
-        window.top?.postMessage(
-          {
-            level: 'debug',
-            msg: [
-              '[Mercury]:',
-              'Issue cloning object when posting log message, JSON stringify version is:',
-              JSON.stringify(payload)
-            ]
-          },
-          '/'
-        );
-      }
-    }
-    console.debug = (...args) => {
-      post({ level: 'debug', msg: ['[Mercury]:', ...args] });
-      _debug(...args);
-    };
-
-    console.info = console.info = (...args) => {
-      post({ level: 'info', msg: ['[Mercury]:', ...args] });
-      _info(...args);
-    };
-
-    console.warn = (...args) => {
-      post({ level: 'warn', msg: ['[Mercury]:', ...args] });
-      _warn(...args);
-    };
-
-    console.error = (...args) => {
-      post({ level: 'error', msg: ['[Mercury]:', ...args] });
-      _error(...args);
-    };
-  }
-}

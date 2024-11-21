@@ -5,6 +5,7 @@ import { CellItemModel } from './model';
 export class CellItemWidget extends Panel {
   constructor(cell: Widget, options: CellItemModel.IOptions) {
     super();
+    this.child = cell;
     this.removeClass('lm-Widget');
     this.removeClass('p-Widget');
     this.addClass('cell-item-widget');
@@ -34,6 +35,11 @@ export class CellItemWidget extends Panel {
   get sidebar(): boolean {
     return this._model.sidebar;
   }
+
+  /**
+   * Wrapped child
+   */
+  readonly child: Widget;
 
   private _model: CellItemModel;
 }

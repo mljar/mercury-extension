@@ -1,38 +1,57 @@
+import { CellChange, YNotebook, createMutex } from '@jupyter/ydoc';
+import type { ISessionContext } from '@jupyterlab/apputils';
+import {
+  CodeCell,
+  CodeCellModel,
+  ICellModel,
+  InputArea,
+  MarkdownCell,
+  MarkdownCellModel,
+  RawCell,
+  RawCellModel,
+  type ICodeCellModel
+} from '@jupyterlab/cells';
+import { IEditorMimeTypeService } from '@jupyterlab/codeeditor';
+import type { IChangedArgs } from '@jupyterlab/coreutils';
+import { DocumentRegistry } from '@jupyterlab/docregistry';
 import {
   CellList,
   INotebookModel,
   NotebookPanel,
   StaticNotebook
 } from '@jupyterlab/notebook';
-
-import {
-  ICellModel,
-  CodeCell,
-  CodeCellModel,
-  MarkdownCell,
-  MarkdownCellModel,
-  RawCell,
-  RawCellModel,
-  InputArea
-} from '@jupyterlab/cells';
-
-import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-
-import { IEditorMimeTypeService } from '@jupyterlab/codeeditor';
-
-import { DocumentRegistry } from '@jupyterlab/docregistry';
-
-import { SimplifiedOutputArea } from '@jupyterlab/outputarea';
-
-import { CellChange, YNotebook, createMutex } from '@jupyter/ydoc';
-
+import { IObservableList } from '@jupyterlab/observables';
+import { IOutputAreaModel, SimplifiedOutputArea } from '@jupyterlab/outputarea';
+import { IRenderMimeRegistry, type IOutputModel } from '@jupyterlab/rendermime';
+import type { Kernel } from '@jupyterlab/services';
+import type {
+  ICommMsgMsg,
+  IHeader,
+  IStatusMsg
+} from '@jupyterlab/services/lib/kernel/messages';
+import { ISignal, Signal } from '@lumino/signaling';
 import { Widget } from '@lumino/widgets';
-
-import { Signal, ISignal } from '@lumino/signaling';
-
 import * as Y from 'yjs';
-
 import { CellItemWidget } from './item/widget';
+
+/**
+ * ipywidgets mimetype
+ */
+const IPYWIDGET_MIMETYPE = 'application/vnd.jupyter.widget-view+json';
+
+/**
+ * Widget update signal payload
+ */
+export interface IWidgetUpdate {
+  /**
+   * Widget model id
+   */
+  widgetModelId: string;
+  /**
+   * Cell model id
+   */
+  cellModelId?: string;
+}
 
 export class AppModel {
   constructor(options: AppModel.IOptions) {
@@ -63,6 +82,28 @@ export class AppModel {
     });
 
     this._context.model.contentChanged.connect(this._updateCells, this);
+
+    // Initialize the mapping between ipywidgets model ID and cell ID
+    this._onCellListChange(this._context.model.cells);
+    this._context.model.cells.changed.connect(this._onCellListChange, this);
+
+    // Start listening to kernel messages
+    this._onKernelChanged(this._context.sessionContext, {
+      name: 'kernel',
+      newValue: this._context.sessionContext.session?.kernel ?? null,
+      oldValue: null
+    });
+    this._context.sessionContext.kernelChanged.connect(
+      this._onKernelChanged,
+      this
+    );
+  }
+
+  /**
+   * Document context
+   */
+  get context(): DocumentRegistry.IContext<INotebookModel> {
+    return this._context;
   }
 
   /**
@@ -155,6 +196,13 @@ export class AppModel {
   }
 
   /**
+   * Signal emitted when a widget has updated.
+   */
+  get widgetUpdated(): ISignal<AppModel, IWidgetUpdate> {
+    return this._widgetUpdated;
+  }
+
+  /**
    * Create a new cell widget from a `CellModel`.
    *
    * @param cellModel - `ICellModel`.
@@ -175,7 +223,7 @@ export class AppModel {
         for (let i = 0; i < codeCell.outputArea.model.length; i++) {
           const output = codeCell.outputArea.model.get(i);
           const data = output.data;
-          if ('application/vnd.jupyter.widget-view+json' in data) {
+          if (IPYWIDGET_MIMETYPE in data) {
             sidebar = true;
           }
         }
@@ -240,6 +288,15 @@ export class AppModel {
     return widget;
   }
 
+  dispose(): void {
+    if (this._isDisposed) {
+      return;
+    }
+    this._isDisposed = true;
+    this._ipywidgetToCellId.clear();
+    Signal.clearData(this);
+  }
+
   /**
    * Execute a CodeCell.
    *
@@ -275,6 +332,188 @@ export class AppModel {
 
   private readonly _mutex = createMutex();
 
+  private _onCellListChange(
+    cells: CellList,
+    changes?: IObservableList.IChangedArgs<ICellModel>
+  ): void {
+    let toConnect: CellList | ICellModel[] = cells;
+    let toDisconnect: ICellModel[] = [];
+
+    if (changes) {
+      switch (changes.type) {
+        case 'add':
+          toConnect = changes.newValues;
+          break;
+        case 'move':
+          // Nothing to do
+          break;
+        case 'remove':
+          toDisconnect = changes.oldValues;
+          break;
+        case 'set':
+          toConnect = changes.newValues;
+          toDisconnect = changes.oldValues;
+
+          break;
+      }
+    }
+
+    for (const cellModel of toDisconnect) {
+      if (cellModel.type === 'code') {
+        const codeModel = cellModel as ICodeCellModel;
+        this._outputsToCell.delete(codeModel.outputs);
+        codeModel.outputs.changed.disconnect(this._onOutputsChange, this);
+      }
+    }
+
+    for (const cellModel of toConnect) {
+      if (cellModel.type === 'code') {
+        const codeModel = cellModel as ICodeCellModel;
+        this._outputsToCell.set(codeModel.outputs, codeModel.id);
+        this._onOutputsChange(codeModel.outputs);
+        codeModel.outputs.changed.connect(this._onOutputsChange, this);
+      }
+    }
+  }
+
+  private _onKernelChanged(
+    session: ISessionContext,
+    changes: IChangedArgs<
+      Kernel.IKernelConnection | null,
+      Kernel.IKernelConnection | null,
+      'kernel'
+    >
+  ): void {
+    const previousConnection = changes.oldValue;
+    if (previousConnection) {
+      previousConnection.anyMessage.disconnect(this._onKernelMessage, this);
+    }
+    const newConnection = changes.newValue;
+    if (newConnection) {
+      newConnection.anyMessage.connect(this._onKernelMessage, this);
+    }
+  }
+
+  private _onKernelMessage(
+    sender: Kernel.IKernelConnection,
+    args: Kernel.IAnyMessageArgs
+  ): void {
+    const { direction, msg } = args;
+
+    switch (direction) {
+      case 'send':
+        if (
+          msg.channel === 'shell' &&
+          msg.header.msg_type === 'comm_msg' &&
+          (msg as ICommMsgMsg<'shell'>).content.data.method === 'update'
+        ) {
+          this._updateMessages.set(
+            (msg as ICommMsgMsg<'shell'>).content.comm_id,
+            msg.header
+          );
+        }
+        break;
+      case 'recv':
+        if (msg.channel === 'iopub') {
+          let commId = '';
+          switch (msg.header.msg_type) {
+            case 'comm_msg':
+              // Robust path by reacting to kernel update acknowledgement
+              if (
+                (msg as ICommMsgMsg<'iopub'>).content.data.method ===
+                  'echo_update' &&
+                this._updateMessages.has(
+                  (msg as ICommMsgMsg<'iopub'>).content.comm_id
+                )
+              ) {
+                commId = (msg as ICommMsgMsg<'iopub'>).content.comm_id;
+              }
+              break;
+            case 'status':
+              // Fallback by reacting to message processing end
+              if ((msg as IStatusMsg).content.execution_state === 'idle') {
+                const parentId = (msg as IStatusMsg).parent_header.msg_id;
+                for (const [
+                  widgetId,
+                  message
+                ] of this._updateMessages.entries()) {
+                  if (message.msg_id === parentId) {
+                    commId = widgetId;
+                    break;
+                  }
+                }
+              }
+              break;
+          }
+          // Execute all cells below the widget
+          if (commId) {
+            const updateMessage = this._updateMessages.get(commId);
+            if (msg.parent_header.msg_id === updateMessage?.msg_id) {
+              this._updateMessages.delete(commId);
+
+              this._widgetUpdated.emit({
+                widgetModelId: commId,
+                cellModelId: this._ipywidgetToCellId.get(commId)
+              });
+            }
+          }
+        }
+        break;
+    }
+  }
+
+  private _onOutputsChange(
+    outputs: IOutputAreaModel,
+    changes?: IOutputAreaModel.ChangedArgs
+  ): void {
+    const toList: IOutputModel[] = [];
+    const toClean: IOutputModel[] = [];
+    if (changes) {
+      switch (changes.type) {
+        case 'add':
+          toList.push(...changes.newValues);
+          break;
+        case 'move':
+          break;
+        case 'remove':
+          toClean.push(...changes.oldValues);
+          break;
+        case 'set':
+          toList.push(...changes.newValues);
+          toClean.push(...changes.oldValues);
+          break;
+      }
+    } else {
+      for (let index = 0; index < outputs.length; index++) {
+        toList.push(outputs.get(index));
+      }
+    }
+
+    for (const output of toClean) {
+      if (IPYWIDGET_MIMETYPE in (output.data ?? {})) {
+        const modelId = (output.data[IPYWIDGET_MIMETYPE] as any)['model_id'];
+        if (modelId) {
+          this._ipywidgetToCellId.delete(modelId);
+          this._updateMessages.delete(modelId);
+        }
+      }
+    }
+
+    for (const output of toList) {
+      if (IPYWIDGET_MIMETYPE in (output.data ?? {})) {
+        const cellId = this._outputsToCell.get(outputs);
+        const modelId = (output.data[IPYWIDGET_MIMETYPE] as any)['model_id'];
+        if (cellId && modelId) {
+          this._ipywidgetToCellId.set(modelId, cellId);
+        } else {
+          console.error(
+            `Failed to find the cell model associated with ipywidget '${modelId}'.`
+          );
+        }
+      }
+    }
+  }
+
   /**
    * Update cells.
    */
@@ -291,9 +530,20 @@ export class AppModel {
   private _ystate: Y.Map<any> = new Y.Map();
 
   private _ready: Signal<this, null>;
+  private _isDisposed = false;
   private _cellRemoved: Signal<this, CellChange>;
   private _stateChanged: Signal<this, null>;
   private _contentChanged: Signal<this, null>;
+  private _ipywidgetToCellId = new Map<string, string>();
+  private _outputsToCell = new WeakMap<IOutputAreaModel, string>();
+
+  /**
+   * Update ipywidget message per widget ID.
+   *
+   * We only keep track of the latest update message to limit cell execution.
+   */
+  private _updateMessages = new Map<string, IHeader>();
+  private _widgetUpdated = new Signal<AppModel, IWidgetUpdate>(this);
 }
 
 export namespace AppModel {
