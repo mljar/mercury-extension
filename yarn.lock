@@ -2461,7 +2461,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jupyterlab/codeeditor@npm:^4.0.0, @jupyterlab/codeeditor@npm:^4.3.0, @jupyterlab/codeeditor@npm:^4.3.3":
+"@jupyterlab/codeeditor@npm:^4.0.0, @jupyterlab/codeeditor@npm:^4.2.0, @jupyterlab/codeeditor@npm:^4.3.0, @jupyterlab/codeeditor@npm:^4.3.3":
   version: 4.3.3
   resolution: "@jupyterlab/codeeditor@npm:4.3.3"
   dependencies:
@@ -2512,7 +2512,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jupyterlab/codemirror@npm:^4.2.0, @jupyterlab/codemirror@npm:^4.3.0, @jupyterlab/codemirror@npm:^4.3.3":
+"@jupyterlab/codemirror@npm:^4.3.0, @jupyterlab/codemirror@npm:^4.3.3":
   version: 4.3.3
   resolution: "@jupyterlab/codemirror@npm:4.3.3"
   dependencies:
@@ -11330,7 +11330,7 @@ __metadata:
     "@jupyterlab/apputils": ^4.3.0
     "@jupyterlab/builder": ^4.0.0
     "@jupyterlab/cells": ^4.2.0
-    "@jupyterlab/codemirror": ^4.2.0
+    "@jupyterlab/codeeditor": ^4.2.0
     "@jupyterlab/coreutils": ^6.2.0
     "@jupyterlab/docmanager": ^4.2.0
     "@jupyterlab/docregistry": ^4.2.0

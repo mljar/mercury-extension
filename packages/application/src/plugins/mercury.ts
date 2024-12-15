@@ -5,7 +5,7 @@ import {
 } from '@jupyterlab/application';
 import { ISessionContextDialogs } from '@jupyterlab/apputils';
 import type { Cell } from '@jupyterlab/cells';
-import { IEditorLanguageRegistry } from '@jupyterlab/codemirror';
+import { IEditorServices } from '@jupyterlab/codeeditor';
 import { PageConfig, signalToPromise } from '@jupyterlab/coreutils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
 import { INotebookCellExecutor } from '@jupyterlab/notebook';
@@ -17,14 +17,20 @@ import { type AppWidget, type MercuryWidget } from '@mljar/mercury-extension';
 class Error extends Widget {
   constructor() {
     super();
-    this.node.insertAdjacentHTML('afterbegin', `<p>Failed to execute the dashboard</p>`);
+    this.node.insertAdjacentHTML(
+      'afterbegin',
+      `<p>Failed to execute the dashboard</p>`
+    );
   }
 }
 
 class Spinner extends Widget {
   constructor() {
     super();
-    this.node.insertAdjacentHTML('afterbegin', '<div class="mercury-loader-container"><div class="mercury-loader"></div></div>');
+    this.node.insertAdjacentHTML(
+      'afterbegin',
+      '<div class="mercury-loader-container"><div class="mercury-loader"></div></div>'
+    );
   }
 }
 
@@ -34,16 +40,17 @@ class Spinner extends Widget {
 export const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mercury-application:opener',
   autoStart: true,
-  requires: [IDocumentManager, INotebookCellExecutor, IEditorLanguageRegistry],
-  optional: [ISessionContextDialogs, ITranslator],
+  requires: [IDocumentManager, INotebookCellExecutor],
+  optional: [IEditorServices, ISessionContextDialogs, ITranslator],
   activate: (
     app: JupyterFrontEnd,
     documentManager: IDocumentManager,
     executor: INotebookCellExecutor,
-    languages: IEditorLanguageRegistry,
+    editorServices: IEditorServices | null,
     sessionContextDialogs: ISessionContextDialogs | null,
     translator: ITranslator | null
   ) => {
+    const { mimeTypeService } = editorServices ?? {};
     Promise.all([app.started, app.restored]).then(async ([settings]) => {
       const spinner = new Spinner();
       app.shell.add(spinner, 'mercury');
@@ -84,6 +91,10 @@ export const plugin: JupyterFrontEndPlugin<void> = {
             // Execute all cells and wait for the initial execution
             const scheduledForExecution = new Set<string>();
             const notebook = mercuryPanel.context.model;
+            const info = notebook.getMetadata('language_info');
+            const mimetype = info
+              ? mimeTypeService?.getMimeTypeByLanguage(info)
+              : undefined;
 
             function onCellExecutionScheduled(args: { cell: Cell }) {
               scheduledForExecution.add(args.cell.model.id);
@@ -96,8 +107,15 @@ export const plugin: JupyterFrontEndPlugin<void> = {
             for (const cellItem of (
               mercuryPanel.content.widgets[0] as AppWidget
             ).cellWidgets) {
+              // Set the mimetype to get the syntax highlighting.
+              if (mimetype) {
+                (cellItem.child as Cell).model.mimeType = mimetype;
+              }
+              // Schedule execution
               if (!cellItem.sidebar) {
                 await executor.runCell({
+                  // FIXME this does not solve the case where the cell is splitted
+                  // with the sidebar as the notebook item is only the input area
                   cell: cellItem.child as Cell,
                   notebook,
                   notebookConfig: mercuryPanel.content.notebookConfig,
