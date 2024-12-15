@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import json
 from typing import Any
 
 try:
@@ -26,14 +27,21 @@ def as_controller(widget: Widget) -> Widget:
     @functools.wraps(widget._repr_mimebundle_)
     def wrapper_repr_mimebundle(**kwargs):
         orig_mimebundle: dict[str, Any] = original_repr_mimebundle(**kwargs) or {}
-        
+
         # Append information for mercury has a new mimetype key
         # Another approach could be to set those information as metadata
         # returning a tuple of two dictionaries tuple(orig_mimebundle, metadata)
-        orig_mimebundle[MERCURY_MIMETYPE] = {
-            "widget": type(widget).__qualname__,
-            "model_id": widget.model_id,
-        }
+        #
+        # Note: the data are serialized to align with mercury widget. But this
+        # sounds sub optimal as the data could be JSON directly; like ipywidgets 
+        # does:
+        # https://github.com/jupyter-widgets/ipywidgets/blob/303cae4dc268640a01ce08bf6e22da6c5cd201e4/python/ipywidgets/ipywidgets/widgets/widget.py#L815
+        orig_mimebundle[MERCURY_MIMETYPE] = json.dumps(
+            {
+                "widget": type(widget).__qualname__,
+                "model_id": widget.model_id,
+            }
+        )
 
         return orig_mimebundle
 

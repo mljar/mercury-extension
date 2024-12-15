@@ -220,6 +220,9 @@ export class AppModel {
         for (let i = 0; i < codeCell.outputArea.model.length; i++) {
           const output = codeCell.outputArea.model.get(i);
           const data = output.data;
+          // Only widget marked as dashboard controller will have
+          // output of type MERCURY_MIMETYPE. So we don't touch widget
+          // unmarked.
           if (MERCURY_MIMETYPE in data) {
             sidebar = true;
           }
@@ -489,7 +492,8 @@ export class AppModel {
 
     for (const output of toClean) {
       if (MERCURY_MIMETYPE in (output.data ?? {})) {
-        const modelId = (output.data[MERCURY_MIMETYPE] as any)['model_id'];
+        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any)
+        const modelId = parsedData['model_id'];
         if (modelId) {
           this._ipywidgetToCellId.delete(modelId);
           this._updateMessages.delete(modelId);
@@ -500,7 +504,8 @@ export class AppModel {
     for (const output of toList) {
       if (MERCURY_MIMETYPE in (output.data ?? {})) {
         const cellId = this._outputsToCell.get(outputs);
-        const modelId = (output.data[MERCURY_MIMETYPE] as any)['model_id'];
+        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any)
+        const modelId = parsedData['model_id'];
         if (cellId && modelId) {
           this._ipywidgetToCellId.set(modelId, cellId);
         } else {
