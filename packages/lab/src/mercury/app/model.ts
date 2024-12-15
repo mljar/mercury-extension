@@ -33,11 +33,7 @@ import { ISignal, Signal } from '@lumino/signaling';
 import { Widget } from '@lumino/widgets';
 import * as Y from 'yjs';
 import { CellItemWidget } from './item/widget';
-
-/**
- * ipywidgets mimetype
- */
-const IPYWIDGET_MIMETYPE = 'application/vnd.jupyter.widget-view+json';
+import { MERCURY_MIMETYPE } from '../../mimerenderer';
 
 /**
  * Widget update signal payload
@@ -223,7 +219,7 @@ export class AppModel {
         for (let i = 0; i < codeCell.outputArea.model.length; i++) {
           const output = codeCell.outputArea.model.get(i);
           const data = output.data;
-          if (IPYWIDGET_MIMETYPE in data) {
+          if (MERCURY_MIMETYPE in data) {
             sidebar = true;
           }
         }
@@ -419,6 +415,7 @@ export class AppModel {
           switch (msg.header.msg_type) {
             case 'comm_msg':
               // Robust path by reacting to kernel update acknowledgement
+              // https://github.com/jupyter-widgets/ipywidgets/blob/303cae4dc268640a01ce08bf6e22da6c5cd201e4/packages/schema/messages.md?plain=1#L292
               if (
                 (msg as ICommMsgMsg<'iopub'>).content.data.method ===
                   'echo_update' &&
@@ -490,8 +487,8 @@ export class AppModel {
     }
 
     for (const output of toClean) {
-      if (IPYWIDGET_MIMETYPE in (output.data ?? {})) {
-        const modelId = (output.data[IPYWIDGET_MIMETYPE] as any)['model_id'];
+      if (MERCURY_MIMETYPE in (output.data ?? {})) {
+        const modelId = (output.data[MERCURY_MIMETYPE] as any)['model_id'];
         if (modelId) {
           this._ipywidgetToCellId.delete(modelId);
           this._updateMessages.delete(modelId);
@@ -500,9 +497,9 @@ export class AppModel {
     }
 
     for (const output of toList) {
-      if (IPYWIDGET_MIMETYPE in (output.data ?? {})) {
+      if (MERCURY_MIMETYPE in (output.data ?? {})) {
         const cellId = this._outputsToCell.get(outputs);
-        const modelId = (output.data[IPYWIDGET_MIMETYPE] as any)['model_id'];
+        const modelId = (output.data[MERCURY_MIMETYPE] as any)['model_id'];
         if (cellId && modelId) {
           this._ipywidgetToCellId.set(modelId, cellId);
         } else {

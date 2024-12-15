@@ -23,7 +23,7 @@ export * from './factory';
 export * from './widget';
 
 export const mercury: JupyterFrontEndPlugin<IMercuryTracker> = {
-  id: '@mljar:mercury-extension:factory',
+  id: '@mljar/mercury-extension:factory',
   autoStart: true,
   provides: IMercuryTracker,
   requires: [
