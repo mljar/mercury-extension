@@ -26,20 +26,13 @@ def as_controller(widget: Widget) -> Widget:
     @functools.wraps(widget._repr_mimebundle_)
     def wrapper_repr_mimebundle(**kwargs):
         orig_mimebundle: dict[str, Any] = original_repr_mimebundle(**kwargs) or {}
-
-        # The conversion happens here by replacing the ipywidget rendering by
-        # the mercury rendering.
-        # An alternative approach would have been to overwrite the ipywidget mimetype
-        # renderer. But in that case we would have lost the ability to separate widgets
-        # between those controlling the dashboard and those being a simple view.
-        # Moreover in the future, we could add metadata to filter reexecuting
-        # the dashboard only on a subset of the widget update events.
-        ipywidget_data = orig_mimebundle.pop(IPYWIDGET_MIMETYPE, None)
-
+        
+        # Append information for mercury has a new mimetype key
+        # Another approach could be to set those information as metadata
+        # returning a tuple of two dictionaries tuple(orig_mimebundle, metadata)
         orig_mimebundle[MERCURY_MIMETYPE] = {
             "widget": type(widget).__qualname__,
             "model_id": widget.model_id,
-            "ipywidget": ipywidget_data,
         }
 
         return orig_mimebundle

@@ -33,7 +33,8 @@ import { ISignal, Signal } from '@lumino/signaling';
 import { Widget } from '@lumino/widgets';
 import * as Y from 'yjs';
 import { CellItemWidget } from './item/widget';
-import { MERCURY_MIMETYPE } from '../../mimerenderer';
+
+const MERCURY_MIMETYPE = 'application/mercury+json';
 
 /**
  * Widget update signal payload
