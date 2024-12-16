@@ -25,12 +25,27 @@ class Error extends Widget {
 }
 
 class Spinner extends Widget {
+  private _label: string = '';
+  protected _container: HTMLElement;
+
   constructor() {
     super();
     this.node.insertAdjacentHTML(
       'afterbegin',
-      '<div class="mercury-loader-container"><div class="mercury-loader"></div></div>'
+      '<div class="mercury-loader-container"><div class="mercury-loader"></div><p></p></div>'
     );
+    this._container = this.node.querySelector('p')!;
+    this.label = 'Starting Mercury dashboard…';
+  }
+
+  get label(): string {
+    return this._label;
+  }
+  set label(v: string) {
+    if (v !== this._label) {
+      this._label = v;
+      this._container.textContent = v;
+    }
   }
 }
 
@@ -96,12 +111,15 @@ export const plugin: JupyterFrontEndPlugin<void> = {
               ? mimeTypeService?.getMimeTypeByLanguage(info)
               : undefined;
 
-            function onCellExecutionScheduled(args: { cell: Cell }) {
+            let cellCounter = 0;
+            const onCellExecutionScheduled = (args: { cell: Cell }) => {
               scheduledForExecution.add(args.cell.model.id);
+              updateSpinner(cellCounter, notebook.cells.length);
             }
 
-            function onCellExecuted(args: { cell: Cell }) {
+            const onCellExecuted = (args: { cell: Cell }) => {
               scheduledForExecution.delete(args.cell.model.id);
+              updateSpinner(++cellCounter, notebook.cells.length);
             }
 
             for (const cellItem of (
@@ -113,8 +131,6 @@ export const plugin: JupyterFrontEndPlugin<void> = {
               }
               // Schedule execution
               await executor.runCell({
-                // FIXME this does not solve the case where the cell is splitted
-                // with the sidebar as the notebook item is only the input area
                 cell: cellItem.child,
                 notebook,
                 notebookConfig: mercuryPanel.content.notebookConfig,
@@ -148,6 +164,10 @@ export const plugin: JupyterFrontEndPlugin<void> = {
             } else {
               app.shell.add(new Error());
             }
+          }
+
+          function updateSpinner(cellCounter: number, total: number) {
+            spinner.label = `Execution in progress: ${cellCounter}/${total} cells.`;
           }
         };
 

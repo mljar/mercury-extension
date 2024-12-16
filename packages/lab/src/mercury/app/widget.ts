@@ -177,8 +177,6 @@ export class AppWidget extends Panel {
         if (cellItem.cellId === update.cellModelId) {
           while (++index < this._right.widgets.length) {
             const cell = (this._right.widgets[index] as CellItemWidget).child;
-            // FIXME This skip the execution of a cell outputting a widget
-            // Unsure this is what the user wants.
             if (cell instanceof CodeCell) {
               CodeCell.execute(cell, this._model.context.sessionContext, {
                 deletedCells: this._model.context.model?.deletedCells ?? []
