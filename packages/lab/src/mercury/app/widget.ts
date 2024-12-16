@@ -13,6 +13,7 @@ import { Signal } from '@lumino/signaling';
 import { Panel } from '@lumino/widgets';
 import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
+import { codeCellExecute } from '../../executor/codecell';
 
 export class AppWidget extends Panel {
   private _left: Panel;
@@ -178,7 +179,7 @@ export class AppWidget extends Panel {
           while (++index < this._right.widgets.length) {
             const cell = (this._right.widgets[index] as CellItemWidget).child;
             if (cell instanceof CodeCell) {
-              CodeCell.execute(cell, this._model.context.sessionContext, {
+              codeCellExecute(cell, this._model.context.sessionContext, {
                 deletedCells: this._model.context.model?.deletedCells ?? []
               });
             }
