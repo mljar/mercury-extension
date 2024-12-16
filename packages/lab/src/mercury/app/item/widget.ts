@@ -1,9 +1,10 @@
-import { Widget, Panel } from '@lumino/widgets';
+import { Panel } from '@lumino/widgets';
 
+import type { Cell } from '@jupyterlab/cells';
 import { CellItemModel } from './model';
 
 export class CellItemWidget extends Panel {
-  constructor(cell: Widget, options: CellItemModel.IOptions) {
+  constructor(cell: Cell, options: CellItemModel.IOptions) {
     super();
     this.child = cell;
     this.removeClass('lm-Widget');
@@ -39,7 +40,7 @@ export class CellItemWidget extends Panel {
   /**
    * Wrapped child
    */
-  readonly child: Widget;
+  readonly child: Cell;
 
   private _model: CellItemModel;
 }

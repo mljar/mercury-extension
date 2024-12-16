@@ -4,11 +4,6 @@ import {
   CodeCell,
   CodeCellModel,
   ICellModel,
-  InputArea,
-  MarkdownCell,
-  MarkdownCellModel,
-  RawCell,
-  RawCellModel,
   type ICodeCellModel
 } from '@jupyterlab/cells';
 import { IEditorMimeTypeService } from '@jupyterlab/codeeditor';
@@ -30,11 +25,9 @@ import type {
   IStatusMsg
 } from '@jupyterlab/services/lib/kernel/messages';
 import { ISignal, Signal } from '@lumino/signaling';
-import { Widget } from '@lumino/widgets';
 import * as Y from 'yjs';
-import { CellItemWidget } from './item/widget';
 
-const MERCURY_MIMETYPE = 'application/mercury+json';
+export const MERCURY_MIMETYPE = 'application/mercury+json';
 
 /**
  * Widget update signal payload
@@ -197,95 +190,6 @@ export class AppModel {
    */
   get widgetUpdated(): ISignal<AppModel, IWidgetUpdate> {
     return this._widgetUpdated;
-  }
-
-  /**
-   * Create a new cell widget from a `CellModel`.
-   *
-   * @param cellModel - `ICellModel`.
-   */
-  public createCell(cellModel: ICellModel, hideOutput = false): CellItemWidget {
-    let item: Widget;
-    let sidebar = false;
-
-    switch (cellModel.type) {
-      case 'code': {
-        const codeCell = new CodeCell({
-          model: cellModel as CodeCellModel,
-          rendermime: this.rendermime,
-          contentFactory: this.contentFactory,
-          editorConfig: this._editorConfig.code
-        });
-        codeCell.readOnly = true;
-        for (let i = 0; i < codeCell.outputArea.model.length; i++) {
-          const output = codeCell.outputArea.model.get(i);
-          const data = output.data;
-          // Only widget marked as dashboard controller will have
-          // output of type MERCURY_MIMETYPE. So we don't touch widget
-          // unmarked.
-          if (MERCURY_MIMETYPE in data) {
-            sidebar = true;
-          }
-        }
-        if (sidebar && !hideOutput) {
-          item = new SimplifiedOutputArea({
-            model: codeCell.outputArea.model,
-            rendermime: codeCell.outputArea.rendermime,
-            contentFactory: codeCell.outputArea.contentFactory
-          });
-        } else {
-          item = codeCell;
-          if (hideOutput) {
-            const opts = {
-              config: this._editorConfig.code
-            };
-
-            //codeCell.inputArea
-            //  ?.contentFactory as InputArea.IContentFactory, // this.contentFactory,
-            item = new InputArea({
-              model: cellModel as CodeCellModel,
-              contentFactory: this.contentFactory,
-              editorOptions: opts
-            });
-          }
-        }
-
-        break;
-      }
-      case 'markdown': {
-        const markdownCell = new MarkdownCell({
-          model: cellModel as MarkdownCellModel,
-          rendermime: this.rendermime,
-          contentFactory: this.contentFactory,
-          editorConfig: this._editorConfig.markdown
-        });
-        markdownCell.inputHidden = false;
-        markdownCell.rendered = true;
-        Private.removeElements(markdownCell.node, 'jp-Collapser');
-        Private.removeElements(markdownCell.node, 'jp-InputPrompt');
-        item = markdownCell;
-        break;
-      }
-      default: {
-        const rawCell = new RawCell({
-          model: cellModel as RawCellModel,
-          contentFactory: this.contentFactory,
-          editorConfig: this._editorConfig.raw
-        });
-        rawCell.inputHidden = false;
-        Private.removeElements(rawCell.node, 'jp-Collapser');
-        Private.removeElements(rawCell.node, 'jp-InputPrompt');
-        item = rawCell;
-        break;
-      }
-    }
-    const options = {
-      cellId: cellModel.id,
-      cellWidget: item,
-      sidebar
-    };
-    const widget = new CellItemWidget(item, options);
-    return widget;
   }
 
   dispose(): void {
@@ -492,7 +396,7 @@ export class AppModel {
 
     for (const output of toClean) {
       if (MERCURY_MIMETYPE in (output.data ?? {})) {
-        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any)
+        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any);
         const modelId = parsedData['model_id'];
         if (modelId) {
           this._ipywidgetToCellId.delete(modelId);
@@ -504,7 +408,7 @@ export class AppModel {
     for (const output of toList) {
       if (MERCURY_MIMETYPE in (output.data ?? {})) {
         const cellId = this._outputsToCell.get(outputs);
-        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any)
+        const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any);
         const modelId = parsedData['model_id'];
         if (cellId && modelId) {
           this._ipywidgetToCellId.set(modelId, cellId);
@@ -575,20 +479,5 @@ export namespace AppModel {
      * A config object for notebook widget
      */
     notebookConfig: StaticNotebook.INotebookConfig;
-  }
-}
-
-/**
- * A namespace for private module data.
- */
-namespace Private {
-  /**
-   * Remove children by className from an HTMLElement.
-   */
-  export function removeElements(node: HTMLElement, className: string): void {
-    const elements = node.getElementsByClassName(className);
-    for (let i = 0; i < elements.length; i++) {
-      elements[i].remove();
-    }
   }
 }

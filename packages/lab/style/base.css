@@ -21,6 +21,12 @@
   border-left: 1px solid #eee;
 }
 
+/* Hide output prompt in sidebar */
+.mercury-left-panel .jp-OutputArea-prompt,
+.mercury-left-panel .jp-OutputArea-promptOverlay {
+  display: none;
+}
+
 .mercury-right-panel {
   width: 70%;
   overflow-y: auto;

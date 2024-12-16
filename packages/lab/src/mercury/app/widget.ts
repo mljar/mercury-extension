@@ -1,9 +1,18 @@
-import { CodeCell } from '@jupyterlab/cells';
+import {
+  CodeCell,
+  MarkdownCell,
+  RawCell,
+  type Cell,
+  type CodeCellModel,
+  type ICellModel,
+  type MarkdownCellModel,
+  type RawCellModel
+} from '@jupyterlab/cells';
 import { Message } from '@lumino/messaging';
 import { Signal } from '@lumino/signaling';
 import { Panel } from '@lumino/widgets';
 import { CellItemWidget } from './item/widget';
-import { AppModel, type IWidgetUpdate } from './model';
+import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
 
 export class AppWidget extends Panel {
   private _left: Panel;
@@ -27,17 +36,85 @@ export class AppWidget extends Panel {
     this.addWidget(this._right);
   }
 
+  /**
+   * Create a new cell widget from a `CellModel`.
+   *
+   * @param cellModel - `ICellModel`.
+   */
+  protected createCell(cellModel: ICellModel): CellItemWidget {
+    let item: Cell;
+    let sidebar = false;
+
+    switch (cellModel.type) {
+      case 'code': {
+        const codeCell = new CodeCell({
+          model: cellModel as CodeCellModel,
+          rendermime: this._model.rendermime,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.code
+        });
+        codeCell.readOnly = true;
+        for (let i = 0; i < codeCell.outputArea.model.length; i++) {
+          const output = codeCell.outputArea.model.get(i);
+          const data = output.data;
+          // Only widget marked as dashboard controller will have
+          // output of type MERCURY_MIMETYPE. So we don't touch widget
+          // unmarked.
+          if (MERCURY_MIMETYPE in data) {
+            sidebar = true;
+            // No need to introspect further
+            break;
+          }
+        }
+        item = codeCell;
+        break;
+      }
+      case 'markdown': {
+        const markdownCell = new MarkdownCell({
+          model: cellModel as MarkdownCellModel,
+          rendermime: this._model.rendermime,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.markdown
+        });
+        markdownCell.inputHidden = false;
+        markdownCell.rendered = true;
+        Private.removeElements(markdownCell.node, 'jp-Collapser');
+        Private.removeElements(markdownCell.node, 'jp-InputPrompt');
+        item = markdownCell;
+        break;
+      }
+      default: {
+        const rawCell = new RawCell({
+          model: cellModel as RawCellModel,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.raw
+        });
+        rawCell.inputHidden = false;
+        Private.removeElements(rawCell.node, 'jp-Collapser');
+        Private.removeElements(rawCell.node, 'jp-InputPrompt');
+        item = rawCell;
+        break;
+      }
+    }
+    const options = {
+      cellId: cellModel.id,
+      cellWidget: item,
+      sidebar
+    };
+    const widget = new CellItemWidget(item, options);
+    return widget;
+  }
+
   private _initCellItems(): void {
     const cells = this._model.cells;
     for (let i = 0; i < cells?.length; i++) {
       const model = cells.get(i);
-      const item = this._model.createCell(model);
+      const item = this.createCell(model);
       this._cellItems.push(item);
       if (item.sidebar) {
-        this._left.addWidget(item);
-        const item_only_input = this._model.createCell(model, true);
-        this._right.addWidget(item_only_input);
-        this._cellItems.push(item_only_input);
+        this._right.addWidget(item);
+        // Detach the output area from main panel to sidebar
+        this._left.addWidget((item.child as CodeCell).outputArea);
       } else {
         this._right.addWidget(item);
       }
@@ -118,4 +195,19 @@ export class AppWidget extends Panel {
 
   private _model: AppModel;
   private _cellItems: CellItemWidget[] = [];
+}
+
+/**
+ * A namespace for private module data.
+ */
+namespace Private {
+  /**
+   * Remove children by className from an HTMLElement.
+   */
+  export function removeElements(node: HTMLElement, className: string): void {
+    const elements = node.getElementsByClassName(className);
+    for (let i = 0; i < elements.length; i++) {
+      elements[i].remove();
+    }
+  }
 }

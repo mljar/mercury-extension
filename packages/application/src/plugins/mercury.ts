@@ -109,23 +109,21 @@ export const plugin: JupyterFrontEndPlugin<void> = {
             ).cellWidgets) {
               // Set the mimetype to get the syntax highlighting.
               if (mimetype) {
-                (cellItem.child as Cell).model.mimeType = mimetype;
+                cellItem.child.model.mimeType = mimetype;
               }
               // Schedule execution
-              if (!cellItem.sidebar) {
-                await executor.runCell({
-                  // FIXME this does not solve the case where the cell is splitted
-                  // with the sidebar as the notebook item is only the input area
-                  cell: cellItem.child as Cell,
-                  notebook,
-                  notebookConfig: mercuryPanel.content.notebookConfig,
-                  onCellExecuted: onCellExecuted,
-                  onCellExecutionScheduled: onCellExecutionScheduled,
-                  sessionContext: mercuryPanel.context.sessionContext,
-                  sessionDialogs: sessionContextDialogs ?? undefined,
-                  translator: translator ?? undefined
-                });
-              }
+              await executor.runCell({
+                // FIXME this does not solve the case where the cell is splitted
+                // with the sidebar as the notebook item is only the input area
+                cell: cellItem.child,
+                notebook,
+                notebookConfig: mercuryPanel.content.notebookConfig,
+                onCellExecuted: onCellExecuted,
+                onCellExecutionScheduled: onCellExecutionScheduled,
+                sessionContext: mercuryPanel.context.sessionContext,
+                sessionDialogs: sessionContextDialogs ?? undefined,
+                translator: translator ?? undefined
+              });
             }
 
             const waitForExecution = new PromiseDelegate();
