@@ -110,13 +110,23 @@ export class NotebookCellExecutor implements INotebookCellExecutor {
               }
             })();
           } catch (reason) {
-            // if (cell.isDisposed || reason.message.startsWith('Canceled')) {
+            // We need to notify all execution to ensure we track
+            // the dashboard execution correctly in the dashboard.
+            if (cell.isDisposed || (reason as any).message.startsWith('Canceled')) {
+              ran = false;
+            }
+            onCellExecuted({
+              cell,
+              success: false,
+              error: reason as any
+            });
+            // if (cell.isDisposed || (reason as any).message.startsWith('Canceled')) {
             //   ran = false;
             // } else {
             //   onCellExecuted({
             //     cell,
             //     success: false,
-            //     error: reason
+            //     error: reason as any
             //   });
             //   throw reason;
             // }
