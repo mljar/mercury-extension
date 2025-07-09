@@ -16,6 +16,7 @@
   background-color: rgb(248 249 250);
   width: 30%;
   padding-left: 10px;
+  padding-right: 10px;
   overflow: hidden auto;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 10%);
   border-left: 1px solid #eee;
@@ -30,4 +31,23 @@
 .mercury-right-panel {
   width: 70%;
   overflow-y: auto;
+}
+
+.widget-text {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.widget-text input {
+  width: 100%;
+  box-sizing: border-box; /* ensures padding and border are included in width */
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.mercury-split-panel > .lm-SplitPanel-handle {
+  background: red;
+  width: 5px;  /* For horizontal splits */
+  cursor: ew-resize;
 }

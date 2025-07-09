@@ -1,3 +1,4 @@
+mervenv/*
 *.bundle.*
 lib/
 node_modules/

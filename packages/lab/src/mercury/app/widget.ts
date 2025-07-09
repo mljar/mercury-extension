@@ -10,16 +10,18 @@ import {
 } from '@jupyterlab/cells';
 import { Message } from '@lumino/messaging';
 import { Signal } from '@lumino/signaling';
-import { Panel } from '@lumino/widgets';
+import { Panel, SplitPanel } from '@lumino/widgets';
 import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
 import { codeCellExecute } from '../../executor/codecell';
 
 export class AppWidget extends Panel {
+  private _split: SplitPanel;
   private _left: Panel;
   private _right: Panel;
   constructor(model: AppModel) {
     super();
+    console.log('AppWidget update');
     this.id = 'mercury-main-panel';
     this.addClass('mercury-main-panel');
     this._model = model;
@@ -28,13 +30,27 @@ export class AppWidget extends Panel {
       this._initCellItems();
     });
 
+    // Create panels
     this._left = new Panel();
     this._right = new Panel();
     this._left.addClass('mercury-left-panel');
     this._right.addClass('mercury-right-panel');
 
-    this.addWidget(this._left);
-    this.addWidget(this._right);
+    // Create the SplitPanel
+    this._split = new SplitPanel();
+    this._split.orientation = 'horizontal'; // left-right split
+    this._split.addClass('mercury-split-panel');
+
+    // Add the left and right panels to the split panel
+    this._split.addWidget(this._left);
+    this._split.addWidget(this._right);
+
+    // Style the SplitPanel
+    this._split.node.style.height = '100%';
+    this._split.node.style.width = '100%';
+
+    // Add the split panel to this main panel
+    this.addWidget(this._split);
   }
 
   /**
@@ -43,6 +59,7 @@ export class AppWidget extends Panel {
    * @param cellModel - `ICellModel`.
    */
   protected createCell(cellModel: ICellModel): CellItemWidget {
+    console.log('lab.src.mercury.app.widget.createCell');
     let item: Cell;
     let sidebar = false;
 
@@ -107,6 +124,7 @@ export class AppWidget extends Panel {
   }
 
   private _initCellItems(): void {
+    console.log('lab.src.mercury.app.widget._initCellItems ==============');
     const cells = this._model.cells;
     for (let i = 0; i < cells?.length; i++) {
       const model = cells.get(i);
@@ -170,6 +188,10 @@ export class AppWidget extends Panel {
   }
 
   private _onWidgetUpdate(model: AppModel, update: IWidgetUpdate): void {
+    console.log(
+      'lab.src.mercury.app.widget._onWidgetUpdate',
+      update.cellModelId
+    );
     if (update.cellModelId) {
       // Use this._right as it contains only the "notebook" cells when this._cellItems
       // contains all items including the one in the sidebar.
@@ -179,6 +201,9 @@ export class AppWidget extends Panel {
           while (++index < this._right.widgets.length) {
             const cell = (this._right.widgets[index] as CellItemWidget).child;
             if (cell instanceof CodeCell) {
+              // move output are to the left
+              //this._left.addWidget((cell as CodeCell).outputArea);
+
               codeCellExecute(cell, this._model.context.sessionContext, {
                 deletedCells: this._model.context.model?.deletedCells ?? []
               });

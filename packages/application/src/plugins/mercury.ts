@@ -19,7 +19,7 @@ class Error extends Widget {
     super();
     this.node.insertAdjacentHTML(
       'afterbegin',
-      `<p>Failed to execute the dashboard</p>`
+      '<p>Failed to execute the dashboard</p>'
     );
   }
 }
@@ -35,7 +35,7 @@ class Spinner extends Widget {
       '<div class="mercury-loader-container"><div class="mercury-loader"></div><p></p></div>'
     );
     this._container = this.node.querySelector('p')!;
-    this.label = 'Starting Mercury dashboard…';
+    this.label = 'Starting Mercury ...';
   }
 
   get label(): string {
@@ -115,16 +115,20 @@ export const plugin: JupyterFrontEndPlugin<void> = {
             const onCellExecutionScheduled = (args: { cell: Cell }) => {
               scheduledForExecution.add(args.cell.model.id);
               updateSpinner(cellCounter, notebook.cells.length);
-            }
+            };
 
             const onCellExecuted = (args: { cell: Cell }) => {
               scheduledForExecution.delete(args.cell.model.id);
               updateSpinner(++cellCounter, notebook.cells.length);
-            }
-
+            };
+            let i = 0;
             for (const cellItem of (
               mercuryPanel.content.widgets[0] as AppWidget
             ).cellWidgets) {
+              if (i > 6) {
+                console.log('break there are only first six cells executed');
+                break;
+              }
               // Set the mimetype to get the syntax highlighting.
               if (mimetype) {
                 cellItem.child.model.mimeType = mimetype;
@@ -140,11 +144,13 @@ export const plugin: JupyterFrontEndPlugin<void> = {
                 sessionDialogs: sessionContextDialogs ?? undefined,
                 translator: translator ?? undefined
               });
+              console.log('cell->', i);
+              i++;
             }
 
             const waitForExecution = new PromiseDelegate();
             const pollExecution = setInterval(() => {
-              if (scheduledForExecution.size == 0) {
+              if (scheduledForExecution.size === 0) {
                 clearInterval(pollExecution);
                 waitForExecution.resolve(undefined);
               }
@@ -167,7 +173,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
           }
 
           function updateSpinner(cellCounter: number, total: number) {
-            spinner.label = `Execution in progress: ${cellCounter}/${total} cells.`;
+            spinner.label = `asasa Execution in progress: ${cellCounter}/${total} cells.`;
           }
         };
 

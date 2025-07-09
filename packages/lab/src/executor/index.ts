@@ -14,7 +14,7 @@ export const notebookCellExecutor: JupyterFrontEndPlugin<INotebookCellExecutor> 
     autoStart: true,
     provides: INotebookCellExecutor,
     activate: (app: JupyterFrontEnd): INotebookCellExecutor => {
-      console.log('cell executor');
+      console.log('Activate NotebookCellExecutor');
       return new NotebookCellExecutor();
     }
   };

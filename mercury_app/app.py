@@ -113,6 +113,8 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             )
         )
 
+from .execute import VoilaExecutor
+ 
 
 class MercuryApp(LabServerApp):
     name = "mercury"
@@ -132,6 +134,10 @@ class MercuryApp(LabServerApp):
     workspaces_dir = get_workspaces_dir()
     subcommands = {}
 
+    print("classes")
+    
+    classes = [VoilaExecutor]
+
     def initialize_handlers(self):
         self.handlers.append((f"/mercury{path_regex}", MercuryHandler))
         super().initialize_handlers()
@@ -145,13 +151,42 @@ class MercuryApp(LabServerApp):
 
     def initialize_settings(self):
         super().initialize_settings()
+        
+        #print(self.settings)
+
+        self.settings.update({
+            "headers": {
+                "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
+                "Access-Control-Allow-Origin": "http://localhost:3000"
+            }
+        })
+        #print("************************")
+        #print(self.settings)
 
     def initialize(self, argv=None):
         """Subclass because the ExtensionApp.initialize() method does not take arguments"""
         super().initialize()
+        print("initialize ------------------------------------")
+        print(self.serverapp.web_app)
+        print(self.serverapp.web_app.__call__)
+        
 
+    
+import tornado.web
+
+class CustomApplication(tornado.web.Application):
+    def __call__(self, request):
+        # Your middleware logic here. For debugging, you can use print or logging.
+        print("Middleware __call__ triggered for:", request.uri)
+        # You can also use logging if configured:
+        # import logging
+        # logging.info("Middleware __call__ triggered for: %s", request.uri)
+        return super().__call__(request)
+    
+print("Mercury ======================")
 
 main = launch_new_instance = MercuryApp.launch_instance
 
+ 
 if __name__ == "__main__":
     main()

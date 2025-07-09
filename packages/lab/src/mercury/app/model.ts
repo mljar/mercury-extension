@@ -427,7 +427,7 @@ export class AppModel {
   private _updateCells(): void {
     this._mutex(() => {
       this._contentChanged.emit(null);
-      console.log('content changed');
+      console.log('content changed 1');
     });
   }
 

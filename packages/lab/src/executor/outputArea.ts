@@ -75,6 +75,16 @@ export async function outputAreaExecute(
         //     Math.min(this.model.length, this._maxNumberOutputs)
         //   );
         // }
+        function isStatusMsgContent(
+          content: any
+        ): content is { execution_state: string } {
+          return (
+            typeof content === 'object' &&
+            content !== null &&
+            'execution_state' in content
+          );
+        }
+
         const f = (msg: KernelMessage.IIOPubMessage) => {
           const msgType = msg.header.msg_type;
           try {
@@ -83,14 +93,18 @@ export async function outputAreaExecute(
               case 'display_data':
               case 'stream':
               case 'error':
-                console.log(msg);
                 this.executeCounter += 1;
               // eslint-disable-next-line no-fallthrough
               default:
                 break;
             }
-
-            if (this.executeCounter === 1) {
+            if (
+              this.executeCounter === 1 ||
+              (msgType === 'status' &&
+                isStatusMsgContent(msg.content) &&
+                msg.content.execution_state === 'idle' &&
+                this.executeCounter === 0)
+            ) {
               this.model.clear();
               // Make sure there were no input widgets.
               if (this.widgets.length) {

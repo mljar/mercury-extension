@@ -30,7 +30,9 @@ export async function codeCellExecute(
   //   model.clearExecution();
   //   cell.outputHidden = false;
   // }, false);
-  cell.setPrompt('*');
+  if (code !== '') {
+    cell.setPrompt('*');
+  }
   model.trusted = true;
   let future:
     | Kernel.IFuture<
@@ -51,9 +53,8 @@ export async function codeCellExecute(
         let label: string;
         switch (msg.header.msg_type) {
           case 'status':
-            label = `status.${
-              (msg as KernelMessage.IStatusMsg).content.execution_state
-            }`;
+            label = `status.${(msg as KernelMessage.IStatusMsg).content.execution_state
+              }`;
             break;
           case 'execute_input':
             label = 'execute_input';

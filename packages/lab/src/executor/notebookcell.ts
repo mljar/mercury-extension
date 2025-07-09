@@ -28,6 +28,7 @@ export class NotebookCellExecutor implements INotebookCellExecutor {
     sessionDialogs,
     translator
   }: INotebookCellExecutor.IRunCellOptions): Promise<boolean> {
+    console.log('cell-executor runCell');
     translator = translator ?? nullTranslator;
     const trans = translator.load('jupyterlab');
     switch (cell.model.type) {
@@ -112,7 +113,10 @@ export class NotebookCellExecutor implements INotebookCellExecutor {
           } catch (reason) {
             // We need to notify all execution to ensure we track
             // the dashboard execution correctly in the dashboard.
-            if (cell.isDisposed || (reason as any).message.startsWith('Canceled')) {
+            if (
+              cell.isDisposed ||
+              (reason as any).message.startsWith('Canceled')
+            ) {
               ran = false;
             }
             onCellExecuted({
