@@ -131,11 +131,17 @@ export class AppWidget extends Panel {
       const item = this.createCell(model);
       this._cellItems.push(item);
       if (item.sidebar) {
-        this._right.addWidget(item);
+        //this._right.addWidget(item);
         // Detach the output area from main panel to sidebar
         this._left.addWidget((item.child as CodeCell).outputArea);
       } else {
-        this._right.addWidget(item);
+        //this._right.addWidget(item);
+        const oa = (item.child as CodeCell).outputArea;
+        const prompt = oa.node.querySelector('.jp-OutputPrompt') as HTMLElement;
+        if (prompt) {
+          prompt.style.display = 'none';
+        }
+        this._right.addWidget(oa);
       }
     }
 

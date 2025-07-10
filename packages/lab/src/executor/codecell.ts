@@ -53,8 +53,7 @@ export async function codeCellExecute(
         let label: string;
         switch (msg.header.msg_type) {
           case 'status':
-            label = `status.${(msg as KernelMessage.IStatusMsg).content.execution_state
-              }`;
+            label = `status.${(msg as KernelMessage.IStatusMsg).content.execution_state}`;
             break;
           case 'execute_input':
             label = 'execute_input';
