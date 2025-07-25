@@ -37,6 +37,10 @@ export class CellItemWidget extends Panel {
     return this._model.sidebar;
   }
 
+  get bottom(): boolean {
+    return this._model.bottom;
+  }
+
   /**
    * Wrapped child
    */

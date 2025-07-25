@@ -12,6 +12,41 @@
   height: 100%;
 }
 
+.mercury-sidebar-toggle {
+  position: absolute;
+  z-index: 100; 
+  background: #222;
+  color: #fff;
+  border: none;
+  
+  cursor: pointer;
+  font-size: 1.5em;
+  opacity: 0.7;
+  box-shadow: 1px 1px 6px #0002;
+  transition: left 0.2s, opacity 0.2s;
+
+  width: 25px;
+  height: 30px;
+  
+  border-radius: 10px 0px 0px 10px !important;
+}
+
+.mercury-sidebar-collapse {
+  right: -2px;
+  top: 10px;
+}
+
+.mercury-sidebar-expand {
+  left: 0;
+  top: 10px;
+  background: #0d6efd;
+  color: #fff;
+  border-radius: 0px 10px 10px 0px !important;
+  box-shadow: 1px 1px 6px #0004;
+}
+
+
+
 .mercury-left-panel {
   background-color: rgb(248 249 250);
   padding-left: 10px;
@@ -19,6 +54,7 @@
   overflow: hidden auto;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 10%);
   border-left: 1px solid #eee;
+  min-width: 250px;
 }
 
 /* Hide output prompt in sidebar */
@@ -27,6 +63,25 @@
   display: none;
 }
 
+.mercury-right-bottom-panel .jp-OutputArea-prompt,
+.mercury-right-bottom-panel .jp-OutputArea-promptOverlay {
+  display: none;
+}
+
+/* needed for markdown */
+.mercury-right-top-panel .jp-InputPrompt,
+.mercury-right-top-panel .jp-InputCollapser {
+  display: none;
+}
+
+.mercury-right-top-panel .jp-OutputArea-prompt,
+.mercury-right-top-panel .jp-OutputArea-promptOverlay {
+  display: none;
+}
+
+
+
+.mercury-right-bottom-panel, 
 .mercury-right-top-panel {
   overflow-y: auto;
 }
@@ -44,11 +99,12 @@
   margin-top: 4px;
 }
 
-.mercury-split-panel > .lm-SplitPanel-handle {
-  background: red;
-  width: 5px;  /* For horizontal splits */
+.mercury-main-panel > .lm-SplitPanel-handle {
+  background: lightgrey;
+  width: 0px !important; 
   cursor: ew-resize;
 }
+
 
 .mercury-panel-with-margin {
   /* max-width: 1280px; */

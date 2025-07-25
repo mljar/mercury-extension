@@ -81,6 +81,36 @@ export class AppWidget extends Panel {
 
     // Add the split panel to this main panel
     this.addWidget(this._split);
+
+    // Collapse button
+    const collapseBtn = document.createElement('button');
+    collapseBtn.innerHTML = '⟨';
+    collapseBtn.className = 'mercury-sidebar-toggle mercury-sidebar-collapse';
+    collapseBtn.title = 'Hide sidebar';
+    this._left.node.appendChild(collapseBtn); // Attach to sidebar
+
+    // Expand button (starts hidden)
+    const expandBtn = document.createElement('button');
+    expandBtn.innerHTML = '⟩';
+    expandBtn.className = 'mercury-sidebar-toggle mercury-sidebar-expand';
+    expandBtn.title = 'Show sidebar';
+    expandBtn.style.display = 'none';
+    this.node.appendChild(expandBtn); // Attach to main container
+
+    // Toggle logic
+    collapseBtn.onclick = () => {
+      this._left.hide();
+      this._split.setRelativeSizes([0, 1]);
+      collapseBtn.style.display = 'none';
+      expandBtn.style.display = '';
+    };
+
+    expandBtn.onclick = () => {
+      this._left.show();
+      this._split.setRelativeSizes([0.2, 0.8]);
+      collapseBtn.style.display = '';
+      expandBtn.style.display = 'none';
+    };
   }
 
   /**
@@ -113,6 +143,7 @@ export class AppWidget extends Panel {
             try {
               const meta = JSON.parse(data[MERCURY_MIMETYPE] as string);
               const pos = meta.position || 'sidebar';
+              console.log(meta, pos);
               sidebar = pos === 'sidebar';
               bottom = pos === 'bottom';
             } catch (err) {
@@ -169,17 +200,23 @@ export class AppWidget extends Panel {
       const model = cells.get(i);
       const item = this.createCell(model);
       this._cellItems.push(item);
-      if (item.sidebar) {
-        //this._right.addWidget(item);
-        // Detach the output area from main panel to sidebar
-        this._left.addWidget((item.child as CodeCell).outputArea);
+
+      // If the cell is a code cell, use the output area
+      if (item.child instanceof CodeCell) {
+        const oa = item.child.outputArea;
+        if (item.sidebar) {
+          this._left.addWidget(oa);
+        } else if (item.bottom) {
+          this._rightBottom.addWidget(oa);
+        } else {
+          //Private.removePromptsOnChange(oa.node);
+          //Private.removeElements(oa.node, 'jp-OutputPrompt');
+          //Private.removeElements(oa.node, 'jp-OutputArea-promptOverlay');
+          this._rightTop.addWidget(oa);
+        }
       } else {
-        //this._right.addWidget(item);
-        const oa = (item.child as CodeCell).outputArea;
-        Private.removePromptsOnChange(oa.node);
-        Private.removeElements(oa.node, 'jp-OutputPrompt');
-        Private.removeElements(oa.node, 'jp-OutputArea-promptOverlay');
-        this._rightTop.addWidget(oa);
+        // All non-code cells always go to _rightTop
+        this._rightTop.addWidget(item.child);
       }
     }
 
@@ -187,6 +224,7 @@ export class AppWidget extends Panel {
 
     this._updatePanelVisibility();
   }
+
 
   private _updatePanelVisibility() {
     // Hide/show left panel
