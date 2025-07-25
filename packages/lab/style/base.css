@@ -14,7 +14,6 @@
 
 .mercury-left-panel {
   background-color: rgb(248 249 250);
-  width: 30%;
   padding-left: 10px;
   padding-right: 10px;
   overflow: hidden auto;
@@ -28,8 +27,7 @@
   display: none;
 }
 
-.mercury-right-panel {
-  width: 70%;
+.mercury-right-top-panel {
   overflow-y: auto;
 }
 
@@ -50,4 +48,14 @@
   background: red;
   width: 5px;  /* For horizontal splits */
   cursor: ew-resize;
+}
+
+.mercury-panel-with-margin {
+  /* max-width: 1280px; */
+  max-width: 1024px; 
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+  box-sizing: border-box;
 }

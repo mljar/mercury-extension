@@ -18,10 +18,27 @@ import { codeCellExecute } from '../../executor/codecell';
 export class AppWidget extends Panel {
   private _split: SplitPanel;
   private _left: Panel;
-  private _right: Panel;
+  private _rightSplit: SplitPanel;
+  private _rightTop: Panel;
+  private _rightBottom: Panel;
+
+  // +-------------------------------------------------------+
+  // | mercury-main-panel                                    |
+  // |                                                       |
+  // |  +--------+---------------------------------------+   |
+  // |  |        |      mercury-right-split-panel        |   |
+  // |  |  Left  |   +-------------------------------+   |   |
+  // |  | Panel  |   |      Right Top (Main)         |   |   |
+  // |  | (20%)  |   |        (85% height)           |   |   |
+  // |  |        |   +-------------------------------+   |   |
+  // |  |        |   |    Right Bottom (Chat Input)  |   |   |
+  // |  |        |   |         (15% height)          |   |   |
+  // |  +--------+---+-------------------------------+---+   |
+  // +-------------------------------------------------------+
+
   constructor(model: AppModel) {
     super();
-    console.log('AppWidget update');
+    console.log('AppWidget constructor');
     this.id = 'mercury-main-panel';
     this.addClass('mercury-main-panel');
     this._model = model;
@@ -32,18 +49,31 @@ export class AppWidget extends Panel {
 
     // Create panels
     this._left = new Panel();
-    this._right = new Panel();
     this._left.addClass('mercury-left-panel');
-    this._right.addClass('mercury-right-panel');
 
-    // Create the SplitPanel
+    this._rightTop = new Panel();
+    this._rightTop.addClass('mercury-right-top-panel'); // For main content
+
+    this._rightBottom = new Panel();
+    this._rightBottom.addClass('mercury-right-bottom-panel'); // For chat input
+
+    this._rightSplit = new SplitPanel();
+    this._rightSplit.orientation = 'vertical';
+    this._rightSplit.addClass('mercury-right-split-panel');
+
+    // Order: Top first (main), Bottom second (chat)
+    this._rightSplit.addWidget(this._rightTop);
+    this._rightSplit.addWidget(this._rightBottom);
+    this._rightSplit.addClass('mercury-split-panel'); // add red split border
+
+    // Create the main SplitPanel
     this._split = new SplitPanel();
     this._split.orientation = 'horizontal'; // left-right split
     this._split.addClass('mercury-split-panel');
 
     // Add the left and right panels to the split panel
     this._split.addWidget(this._left);
-    this._split.addWidget(this._right);
+    this._split.addWidget(this._rightSplit);
 
     // Style the SplitPanel
     this._split.node.style.height = '100%';
@@ -61,7 +91,8 @@ export class AppWidget extends Panel {
   protected createCell(cellModel: ICellModel): CellItemWidget {
     console.log('lab.src.mercury.app.widget.createCell');
     let item: Cell;
-    let sidebar = false;
+    let sidebar = false; // place cell in the sidebar
+    let bottom = false; // place cell in the bottom panel
 
     switch (cellModel.type) {
       case 'code': {
@@ -79,8 +110,15 @@ export class AppWidget extends Panel {
           // output of type MERCURY_MIMETYPE. So we don't touch widget
           // unmarked.
           if (MERCURY_MIMETYPE in data) {
-            sidebar = true;
-            // No need to introspect further
+            try {
+              const meta = JSON.parse(data[MERCURY_MIMETYPE] as string);
+              const pos = meta.position || 'sidebar';
+              sidebar = pos === 'sidebar';
+              bottom = pos === 'bottom';
+            } catch (err) {
+              sidebar = true;
+              bottom = false;
+            }
             break;
           }
         }
@@ -117,7 +155,8 @@ export class AppWidget extends Panel {
     const options = {
       cellId: cellModel.id,
       cellWidget: item,
-      sidebar
+      sidebar,
+      bottom
     };
     const widget = new CellItemWidget(item, options);
     return widget;
@@ -137,15 +176,43 @@ export class AppWidget extends Panel {
       } else {
         //this._right.addWidget(item);
         const oa = (item.child as CodeCell).outputArea;
-        const prompt = oa.node.querySelector('.jp-OutputPrompt') as HTMLElement;
-        if (prompt) {
-          prompt.style.display = 'none';
-        }
-        this._right.addWidget(oa);
+        Private.removePromptsOnChange(oa.node);
+        Private.removeElements(oa.node, 'jp-OutputPrompt');
+        Private.removeElements(oa.node, 'jp-OutputArea-promptOverlay');
+        this._rightTop.addWidget(oa);
       }
     }
 
     this._model.widgetUpdated.connect(this._onWidgetUpdate, this);
+
+    this._updatePanelVisibility();
+  }
+
+  private _updatePanelVisibility() {
+    // Hide/show left panel
+    if (this._left.widgets.length === 0) {
+      this._left.hide();
+      this._split.setRelativeSizes([0, 1]);
+    } else {
+      this._left.show();
+      this._split.setRelativeSizes([0.2, 0.8]);
+    }
+
+    // Hide/show right bottom panel
+    if (this._rightBottom.widgets.length === 0) {
+      this._rightBottom.hide();
+      this._rightSplit.setRelativeSizes([1, 0]);
+    } else {
+      this._rightBottom.show();
+      this._rightSplit.setRelativeSizes([0.85, 0.15]);
+    }
+
+    // Margin logic for rightTop
+    if (this._left.widgets.length === 0) {
+      this._rightTop.addClass('mercury-panel-with-margin');
+    } else {
+      this._rightTop.removeClass('mercury-panel-with-margin');
+    }
   }
 
   /**
@@ -167,6 +234,13 @@ export class AppWidget extends Panel {
    */
   protected onAfterAttach(msg: Message): void {
     super.onAfterAttach(msg);
+    // Now the panel is attached, set split sizes
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this._split.setRelativeSizes([0.2, 0.8]);
+        this._rightSplit.setRelativeSizes([0.85, 0.15]);
+      });
+    });
   }
 
   /**
@@ -194,32 +268,40 @@ export class AppWidget extends Panel {
   }
 
   private _onWidgetUpdate(model: AppModel, update: IWidgetUpdate): void {
-    console.log(
-      'lab.src.mercury.app.widget._onWidgetUpdate',
-      update.cellModelId
-    );
-    if (update.cellModelId) {
-      // Use this._right as it contains only the "notebook" cells when this._cellItems
-      // contains all items including the one in the sidebar.
-      for (let index = 0; index < this._right.widgets.length; index++) {
-        const cellItem = this._right.widgets[index] as CellItemWidget;
-        if (cellItem.cellId === update.cellModelId) {
-          while (++index < this._right.widgets.length) {
-            const cell = (this._right.widgets[index] as CellItemWidget).child;
-            if (cell instanceof CodeCell) {
-              // move output are to the left
-              //this._left.addWidget((cell as CodeCell).outputArea);
+    if (!update.cellModelId) {
+      // console.warn('A widget not linked to a specific cell has updated.');
+      return;
+    }
 
-              codeCellExecute(cell, this._model.context.sessionContext, {
-                deletedCells: this._model.context.model?.deletedCells ?? []
-              });
+    const cells = this._model.cells;
+    const cellCount = cells.length;
+    let updatedIndex = -1;
+
+    for (let i = 0; i < cellCount; i++) {
+      if (cells.get(i).id === update.cellModelId) {
+        updatedIndex = i;
+        break;
+      }
+    }
+    if (updatedIndex === -1) {
+      // console.warn('Updated cellModelId not found in cell list');
+      return;
+    }
+    // Execute all code cells below the updated cell
+    for (let i = updatedIndex + 1; i < cellCount; i++) {
+      const cellModel = cells.get(i);
+      if (cellModel.type === 'code') {
+        const cellWidget = this._cellItems.find(w => w.cellId === cellModel.id);
+        if (cellWidget && cellWidget.child instanceof CodeCell) {
+          codeCellExecute(
+            cellWidget.child as CodeCell,
+            this._model.context.sessionContext,
+            {
+              deletedCells: this._model.context.model?.deletedCells ?? []
             }
-          }
-          break;
+          );
         }
       }
-    } else {
-      console.warn('A widget not linked to a specific cell has updated.');
     }
   }
 
@@ -239,5 +321,16 @@ namespace Private {
     for (let i = 0; i < elements.length; i++) {
       elements[i].remove();
     }
+  }
+
+  export function removePromptsOnChange(node: HTMLElement) {
+    const remove = () => {
+      Private.removeElements(node, 'jp-OutputPrompt');
+      Private.removeElements(node, 'jp-OutputArea-promptOverlay');
+    };
+    remove();
+    const observer = new MutationObserver(remove);
+    observer.observe(node, { childList: true, subtree: true });
+    return observer;
   }
 }

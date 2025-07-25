@@ -413,9 +413,9 @@ export class AppModel {
         if (cellId && modelId) {
           this._ipywidgetToCellId.set(modelId, cellId);
         } else {
-          console.error(
-            `Failed to find the cell model associated with ipywidget '${modelId}'.`
-          );
+          // console.error(
+          //   `Failed to find the cell model associated with ipywidget '${modelId}'.`
+          // );
         }
       }
     }
@@ -427,7 +427,6 @@ export class AppModel {
   private _updateCells(): void {
     this._mutex(() => {
       this._contentChanged.emit(null);
-      console.log('content changed 1');
     });
   }
 
