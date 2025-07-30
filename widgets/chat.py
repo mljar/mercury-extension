@@ -1,85 +1,113 @@
 import ipywidgets as widgets
-from IPython.display import display, HTML
+from IPython.display import display
 
 class ChatMessage(widgets.HBox):
-    def __init__(
-        self, 
-        role="user", 
-        emoji=None,
-        bubble_color=None,
-        text_color=None,
-        max_width="700px",
-        border_color=None,
-    ):
+    def __init__(self, role="user", emoji="👤", max_width="900px"):
         super().__init__()
 
-        # Defaults for color and border
-        if bubble_color is None:
-            bubble_color = "#eaf7ff" if role == "user" else "#f5f1ff"
-        if text_color is None:
-            text_color = "#222"
-        if border_color is None:
-            border_color = "#aad7ff" if role == "user" else "#ccb7fa"
+        avatar_bg = "#84c4ff" if role == "user" else "#eeeeee"
 
-        # "bubble" is a Box with both HTML (for text) and Output (for rich content)
-        self.text_html = widgets.HTML()  # for set_message (plain or simple html)
-        self.output = widgets.Output()   # for any print/display/plots
+        avatar_html = (
+            f'<div style="'
+            f'width:36px;height:36px;'
+            f'background:{avatar_bg};'
+            f'border-radius:12px;'
+            f'display:flex;align-items:center;justify-content:center;'
+            f'box-shadow:0 1px 4px rgba(60,60,60,0.10);'
+            f'">'
+            f'<span style="font-size:18px;line-height:1;">{emoji}</span>'
+            f'</div>'
+        ) if emoji else ""
 
-        bubble = widgets.VBox(
-            [self.text_html, self.output],
+        avatar = widgets.HTML(
+            value=avatar_html,
             layout=widgets.Layout(
-                min_width="80px",
+                #width="44px",
+                #height="44px",
+                #min_width="44px",
+                #max_width="44px",
+                margin="0 5px 0 0",
+                align_self="flex-start"
+            )
+        ) if emoji else None
+
+        # ---- Bubble wrapper (for style only) ----
+        self.output = widgets.Output()
+
+        bubble_html_style = (
+            "background:#fff;"
+            "border-radius:13px;"
+            "box-shadow:0 2px 12px rgba(60,60,60,0.10);"
+            "padding:14px 20px;"
+            "margin:7px 0;"
+            "color:#232323;"
+            "font-family:inherit;"
+            "font-size:1.04em;"
+            "white-space:normal;"
+            "word-break:break-word;"
+        )
+
+        # This HTML just acts as a wrapper for style
+        self.bubble_wrapper = widgets.HTML(
+            value=f'<div style="{bubble_html_style}"></div>',
+            layout=widgets.Layout(
+                min_width="100px",
                 max_width=max_width,
-                width="100%",
-                padding="12px 18px",
-                background_color=bubble_color,
-                color=text_color,
-                border_radius="17px",
-                border=f"1.5px solid {border_color}",
-                box_shadow="0 2px 8px #0001",
-                margin="5px 0 5px 0",
-                overflow="visible",
+                width="auto",
                 flex="1 1 auto",
-                align_self="flex-start",
+                align_self="flex-start"
             )
         )
 
-        # Optional avatar (emoji)
-        avatar = None
-        if emoji:
-            avatar = widgets.HTML(
-                value=f'<div style="font-size:28px; width:40px; height:40px; background:#ececec;'
-                      'border-radius:50%; display:flex; align-items:center; justify-content:center;'
-                      'box-shadow:0 2px 8px #0001;">'
-                      f'{emoji}</div>',
-                layout=widgets.Layout(
-                    min_width="44px", max_width="44px", width="44px",
-                    margin="0 10px 0 0" if role == "ai" else "0 0 0 10px",
-                    align_self="flex-start"
-                )
+        # Place output **on top of** the HTML styled bubble via VBox, and make wrapper transparent so only Output is visible inside styled div
+        self.bubble = widgets.Box(
+            [self.output],
+            layout=widgets.Layout(
+                min_width="100px",
+                max_width=max_width,
+                width="auto",
+                flex="1 1 auto",
+                align_self="flex-start",
+                padding="5px 0px 0px 0px",
+                margin="0"
             )
+        )
+
+        # We'll use HBox to put avatar, then a "bubble container" (which is a styled HTML bubble that *contains* Output)
+        class BubbleContainer(widgets.Box):
+            def __init__(self, bubble_widget):
+                super().__init__([bubble_widget])
+                self.add_class("bubble-container")
+                self.layout = widgets.Layout(
+                    min_width="100px",
+                    max_width=max_width,
+                    width="auto",
+                    flex="1 1 auto",
+                    align_self="flex-start",
+                    padding="0",
+                    margin="0"
+                )
+            def _repr_html_(self):
+                # Trick: style parent div, but return children as content
+                return f'<div style="{bubble_html_style}">{self.children[0]._repr_html_()}</div>'
+
+        bubble_container = BubbleContainer(self.bubble)
 
         spacer = widgets.Box(layout=widgets.Layout(flex="1 1 0%", width="0px"))
-
-        # Arrange: AI left (avatar | bubble | spacer), User right (spacer | bubble | avatar)
-        if role == "ai":
-            self.children = ([avatar, bubble, spacer] if avatar else [bubble, spacer])
-        else:
-            self.children = ([spacer, bubble, avatar] if avatar else [spacer, bubble])
-
+        self.children = [avatar, bubble_container, spacer] if avatar else [bubble_container, spacer]
         self.layout.align_items = "flex-start"
-        self.layout.width = '100%'
-        self.layout.margin = "0"
+        self.layout.width = "100%"
+        self.layout.margin = "5px"
 
     def set_message(self, text=None, html=None):
-        """Set the plain text or HTML for the bubble (optional)."""
-        if html:
-            self.text_html.value = html
-        elif text:
-            # Escape for html safety
-            self.text_html.value = f"<pre style='margin:0; font-size:1em; background:none; border:none; color:inherit'>{text}</pre>"
-        else:
-            self.text_html.value = ""
+        """For convenience: print Markdown, text, or HTML into the output."""
+        self.output.clear_output(wait=True)
+        with self.output:
+            if html:
+                from IPython.display import HTML as DHTML
+                display(DHTML(html))
+            elif text:
+                print(text)
 
     def __enter__(self):
         return self.output.__enter__()
@@ -87,20 +115,32 @@ class ChatMessage(widgets.HBox):
         return self.output.__exit__(exc_type, exc_val, exc_tb)
 
 class ChatDisplay:
-    def __init__(self, placeholder="No messages yet. Start the conversation!"):
+    def __init__(self, placeholder="💬 No messages yet. Start the conversation!"):
         self.messages = []
-        self.placeholder = placeholder
         self.placeholder_label = widgets.HTML(
-            f'<div style="color:#bbb; text-align:center; padding:48px 0; font-size:1.2em;">'
-            f'💬 {self.placeholder}</div>'
+            f'''
+            <div style="
+              color:#b5b5b5;
+              text-align:center;
+              padding:40px 0;
+              font-size:1.1em;
+              background:#fff;
+            ">
+              {placeholder}
+            </div>
+            '''
         )
         self.vbox = widgets.VBox(
             [self.placeholder_label],
-            layout=widgets.Layout(width='100%', padding='8px 4px')
+            layout=widgets.Layout(
+                width='100%',
+                padding='4px 4px',
+                background_color='#fff'
+            )
         )
         display(self.vbox)
 
-    def add(self, message):
+    def add(self, message: ChatMessage):
         self.messages.append(message)
         self.vbox.children = self.messages or [self.placeholder_label]
 
