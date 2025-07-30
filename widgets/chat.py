@@ -68,7 +68,7 @@ class ChatMessage(widgets.HBox):
                 width="auto",
                 flex="1 1 auto",
                 align_self="flex-start",
-                padding="5px 0px 0px 0px",
+                padding="6px 0px 0px 0px",
                 margin="0"
             )
         )
