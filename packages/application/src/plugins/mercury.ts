@@ -166,7 +166,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
           }
 
           function updateSpinner(cellCounter: number, total: number) {
-            spinner.label = `Loading ${Math.floor(cellCounter / total)}%`;
+            spinner.label = `Loading ${Math.floor(cellCounter / total)}% hihi`;
           }
         };
 
