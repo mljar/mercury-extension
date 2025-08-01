@@ -5,7 +5,6 @@ from .manager import WidgetsManager, MERCURY_MIMETYPE
 
 def Slider(*args, key="", **kwargs):
     code_uid = WidgetsManager.get_code_uid("Slider", key=key)
-    print(code_uid)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

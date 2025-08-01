@@ -15,7 +15,17 @@ import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
 import { codeCellExecute } from '../../executor/codecell';
 
+function getPageConfig(): any {
+  const el = document.getElementById('jupyter-config-data');
+  if (!el) {
+    throw new Error('Page config script not found');
+  }
+  // Parse its JSON content
+  return JSON.parse(el.textContent || '{}');
+}
+
 export class AppWidget extends Panel {
+  private _showCode = false;
   private _split: SplitPanel;
   private _left: Panel;
   private _rightSplit: SplitPanel;
@@ -38,6 +48,10 @@ export class AppWidget extends Panel {
 
   constructor(model: AppModel) {
     super();
+
+    const pageConfig = getPageConfig();
+    this._showCode = pageConfig.showCode ?? true;
+
     console.log('AppWidget constructor');
     this.id = 'mercury-main-panel';
     this.addClass('mercury-main-panel');
@@ -204,14 +218,23 @@ export class AppWidget extends Panel {
       // If the cell is a code cell, use the output area
       if (item.child instanceof CodeCell) {
         const oa = item.child.outputArea;
+
+        if (this._showCode) {
+          // item.child.outputArea.hide();
+          this._rightTop.addWidget(item.child);
+          const outputEl = item.child.node.querySelector(
+            '.jp-Cell-outputWrapper'
+          ) as HTMLElement;
+          if (outputEl) {
+            outputEl.style.display = 'none';
+          }
+        }
+
         if (item.sidebar) {
           this._left.addWidget(oa);
         } else if (item.bottom) {
           this._rightBottom.addWidget(oa);
         } else {
-          //Private.removePromptsOnChange(oa.node);
-          //Private.removeElements(oa.node, 'jp-OutputPrompt');
-          //Private.removeElements(oa.node, 'jp-OutputArea-promptOverlay');
           this._rightTop.addWidget(oa);
         }
       } else {
@@ -224,7 +247,6 @@ export class AppWidget extends Panel {
 
     this._updatePanelVisibility();
   }
-
 
   private _updatePanelVisibility() {
     // Hide/show left panel

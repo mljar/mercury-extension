@@ -1,9 +1,7 @@
-import os
-from os.path import join as pjoin
 from pathlib import Path
 from typing import Optional
 
-from jupyter_server.base.handlers import JupyterHandler, path_regex
+from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.extension.handler import ExtensionHandlerJinjaMixin, ExtensionHandlerMixin
 from jupyter_server.utils import ensure_async, url_path_join as ujoin
 from jupyterlab_server.config import get_page_config, recursive_update, LabConfig
@@ -11,7 +9,6 @@ from jupyterlab_server.handlers import is_url, _camelCase
 from tornado import web
 
 from ._version import __version__
-
 version = __version__
 
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
@@ -89,12 +86,15 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
                 )
             )
 
+        page_config = self.get_page_config(path)
+        page_config["showCode"] = self.settings.get("show_code", False)
+        
         return self.write(
             self.render_template(
                 "index.html",
                 static=self.static_url,
                 base_url=self.base_url,
                 token=self.settings["token"],
-                page_config=self.get_page_config(path),
+                page_config=page_config,
             )
         )

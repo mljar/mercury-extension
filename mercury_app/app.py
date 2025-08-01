@@ -1,6 +1,6 @@
 import os
 from os.path import join as pjoin
-from traitlets import Integer
+from traitlets import Integer, Bool
 
 import logging
 #logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(name)s:%(message)s")
@@ -18,9 +18,23 @@ from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspac
 
 from ._version import __version__
 from .handlers import MercuryHandler
+from .contents_handler import ContentsHandler
+
 from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
 
 logger = logging.getLogger("mercury.app")
+
+class SuppressKernelDoesNotExist(logging.Filter):
+    def filter(self, record):
+        # Don't log if message matches our known error text
+        if 'Kernel does not exist:' in str(record.getMessage()):
+            return False
+        return True
+
+# Apply to the Jupyter server logger (and tornado)
+for logger_name in ["tornado.application", "ServerApp"]:
+    logger = logging.getLogger(logger_name)
+    logger.addFilter(SuppressKernelDoesNotExist())
 
 HERE = os.path.dirname(__file__)
 app_dir = get_app_dir()
@@ -49,9 +63,15 @@ class MercuryApp(LabServerApp):
         help="Timeout (in seconds) before shutting down if idle. 0 disables timeout."
     ).tag(config=True)
 
+    show_code = Bool(
+        False,  
+        help="Show code cells' input area."
+    ).tag(config=True)
+
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
         self.handlers.append((f"/mercury{path_regex}", MercuryHandler))
+        self.handlers.append((r"/api/contents/(.*\.ipynb)$", ContentsHandler))
         super().initialize_handlers()
 
     def initialize_templates(self):
@@ -63,6 +83,7 @@ class MercuryApp(LabServerApp):
 
     def initialize_settings(self):
         super().initialize_settings()
+        self.settings['show_code'] = self.show_code
         self.settings.update({
             "headers": {
                 "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
@@ -78,6 +99,7 @@ class MercuryApp(LabServerApp):
             self.serverapp.web_app._timeout_manager = self._timeout_manager
             self.serverapp.web_app.add_transform(TimeoutActivityTransform)
             patch_kernel_websocket_handler()
+
 
 main = launch_new_instance = MercuryApp.launch_instance
 
