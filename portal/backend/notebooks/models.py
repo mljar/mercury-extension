@@ -1,4 +1,5 @@
 from django.db import models
+import os
 
 class Notebook(models.Model):
     name = models.CharField(max_length=200)
@@ -33,6 +34,23 @@ class Notebook(models.Model):
     started_at = models.DateTimeField(
         null=True, blank=True, help_text="When the notebook app was started"
     )
+
+    # ✅ New fields
+    file_name = models.CharField(
+        max_length=200, blank=True, null=True,
+        help_text="Notebook file name without extension"
+    )
+
+    url = models.CharField(
+        max_length=500, blank=True, null=True,
+        help_text="URL to access the running notebook app"
+    )
+
+    def save(self, *args, **kwargs):
+        if self.file_path:
+            base = os.path.basename(self.file_path)
+            self.file_name = os.path.splitext(base)[0]
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

@@ -1,3 +1,5 @@
+
+import os
 import sys
 import subprocess
 import psutil
@@ -34,9 +36,25 @@ class NotebookViewSet(mixins.ListModelMixin,
     @action(detail=True, methods=['post'])
     def launch(self, request, pk=None):
         notebook = self.get_object()
-        if notebook.status == 'running':
-            return Response({'detail': 'Already running', 'url': f'http://localhost:{notebook.port}', 'token': notebook.token})
 
+        # Check if notebook is marked running but the process is not alive
+        if notebook.status == 'running' and notebook.pid:
+            try:
+                psutil.Process(notebook.pid)
+                # Process is alive
+                filename = os.path.basename(notebook.file_path)
+                url = f'http://localhost:{notebook.port}/mercury/{filename}?token={notebook.token}'
+                return Response({'detail': 'Already running', 'url': url, 'token': notebook.token})
+            except psutil.NoSuchProcess:
+                # Process is dead, clean up
+                notebook.status = 'stopped'
+                notebook.port = None
+                notebook.pid = None
+                notebook.token = None
+                notebook.started_at = None
+                notebook.save()
+
+        # Start new notebook process
         port = find_free_port()
         token = secrets.token_urlsafe(32)
         now = timezone.now()
@@ -45,19 +63,22 @@ class NotebookViewSet(mixins.ListModelMixin,
             sys.executable, "-m", "mercury_app", notebook.file_path,
             f"--port={port}",
             "--MercuryApp.timeout=600",
-            #"--no-browser",
             f"--NotebookApp.token={token}",
         ]
         print(cmd)
+        filename = os.path.basename(notebook.file_path)
+        url = f'http://localhost:{port}/mercury/{filename}?token={token}'
+        
         process = subprocess.Popen(cmd)
         notebook.port = port
         notebook.pid = process.pid
         notebook.status = 'running'
         notebook.token = token
         notebook.started_at = now
+        notebook.url = url 
         notebook.save()
-        return Response({'url': f'http://localhost:{port}', 'token': token, 'started_at': now})
 
+        return Response({'url': url, 'token': token, 'started_at': now})
 
     @action(detail=True, methods=['post'])
     def stop(self, request, pk=None):
@@ -75,5 +96,7 @@ class NotebookViewSet(mixins.ListModelMixin,
         notebook.status = 'stopped'
         notebook.pid = None
         notebook.port = None
+        notebook.url = None  
         notebook.save()
         return Response({'status': 'stopped'})
+
