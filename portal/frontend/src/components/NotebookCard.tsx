@@ -1,53 +1,23 @@
 import React, { useState } from 'react';
-import { Notebook } from '@/types/notebook';
 import { useRouter } from 'next/navigation';
+import { Notebook } from '@/types/notebook';
 import API from '@/lib/api';
 
 interface Props {
   notebook: Notebook;
-  borderColor?: string;
 }
 
-const NotebookCard: React.FC<Props> = ({ notebook, borderColor }) => {
+const NotebookCard = ({ notebook }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  let icon;
-  if (notebook.thumbnail_image) {
-    icon = (
-      <img
-        src={notebook.thumbnail_image}
-        alt={notebook.name}
-        className="w-12 h-12 rounded-xl object-cover bg-gray-100"
-      />
-    );
-  } else {
-    icon = (
-      <div
-        className="w-12 h-12 flex items-center justify-center rounded-xl text-2xl font-bold"
-        style={{
-          background: notebook.thumbnail_bg || '#38bdf8',
-          color: notebook.thumbnail_text_color || '#fff',
-        }}
-      >
-        {notebook.thumbnail_text || '📒'}
-      </div>
-    );
-  }
-
-  const border =
-    borderColor ||
-    (notebook.thumbnail_bg ? `border-[2.5px]` : `border border-cyan-600`);
-
-  // --- This function launches notebook then navigates ---
-  const handleCardClick = async () => {
+  const handleClick = async () => {
     setLoading(true);
     try {
       await API.post(`notebooks/${notebook.id}/launch/`);
       router.push(`/notebooks/${notebook.id}`);
-    } catch (error) {
-      alert('Failed to launch notebook. See console for details.');
-      console.error(error);
+    } catch (err) {
+      alert('Failed to launch notebook.');
     } finally {
       setLoading(false);
     }
@@ -55,29 +25,44 @@ const NotebookCard: React.FC<Props> = ({ notebook, borderColor }) => {
 
   return (
     <div
-      className={`flex flex-col bg-[#232837] ${border} rounded-2xl shadow-md p-6 cursor-pointer transition hover:shadow-lg min-h-[230px] border-solid relative`}
-      style={{
-        borderColor: notebook.thumbnail_bg || '#38bdf8',
-        opacity: loading ? 0.6 : 1,
-      }}
-      onClick={loading ? undefined : handleCardClick}
-      role="button"
-      tabIndex={0}
+      className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-200 p-6 flex flex-col items-center text-center cursor-pointer transition-all duration-200 min-h-[220px] relative hover:border-gray-300"
+      onClick={loading ? undefined : handleClick}
     >
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-2xl z-10">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-400"></div>
+        <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-xl z-10">
+          <div className="animate-spin h-6 w-6 border-2 border-t-transparent border-blue-500 rounded-full" />
         </div>
       )}
-      <div className="flex items-center gap-4 mb-3">
-        {icon}
-        <span className="font-bold text-2xl text-white">{notebook.name}</span>
+
+      {/* Icon */}
+      <div
+        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 shadow-sm"
+        style={{
+          background: notebook.thumbnail_bg || '#6b7280',
+          color: notebook.thumbnail_text_color || '#fff'
+        }}
+      >
+        {notebook.thumbnail_image ? (
+          <img
+            src={notebook.thumbnail_image}
+            alt={notebook.name}
+            className="w-full h-full object-cover rounded-xl"
+          />
+        ) : (
+          notebook.thumbnail_text || '📒'
+        )}
       </div>
-      <div className="text-gray-300 text-base leading-normal">
+
+      {/* Title */}
+      <h2 className="font-semibold text-lg text-gray-900 mb-2 leading-tight">
+        {notebook.name}
+      </h2>
+
+      {/* Description */}
+      <p className="text-sm text-gray-600 leading-relaxed">
         {notebook.description}
-      </div>
+      </p>
     </div>
   );
 };
-
 export default NotebookCard;
