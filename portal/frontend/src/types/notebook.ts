@@ -3,6 +3,7 @@ export interface Notebook {
     name: string;
     description: string;
     file_path: string;
+    url: string;
     port: number | null;
     pid: number | null;
     status: string;

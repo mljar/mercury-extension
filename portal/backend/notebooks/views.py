@@ -4,8 +4,15 @@ import sys
 import subprocess
 import psutil
 import secrets
-
+import requests 
+import tempfile
+import threading
+import time
+ 
 from django.utils import timezone
+from django.db import transaction
+from django.db import OperationalError
+from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -35,50 +42,75 @@ class NotebookViewSet(mixins.ListModelMixin,
 
     @action(detail=True, methods=['post'])
     def launch(self, request, pk=None):
-        notebook = self.get_object()
+        print(f"LAUNCH REQUEST {time.time()} {threading.get_ident()} for notebook {pk}")
+        
+        def _cleanup(notebook):
+            notebook.status = 'stopped'
+            notebook.port = None
+            notebook.pid = None
+            notebook.token = None
+            notebook.started_at = None
+            notebook.save()
 
-        # Check if notebook is marked running but the process is not alive
-        if notebook.status == 'running' and notebook.pid:
+        def _is_process_alive(pid):
             try:
-                psutil.Process(notebook.pid)
-                # Process is alive
-                filename = os.path.basename(notebook.file_path)
-                url = f'http://localhost:{notebook.port}/mercury/{filename}?token={notebook.token}'
-                return Response({'detail': 'Already running', 'url': url, 'token': notebook.token})
+                proc = psutil.Process(pid)
+                return proc.is_running()
             except psutil.NoSuchProcess:
-                # Process is dead, clean up
-                notebook.status = 'stopped'
-                notebook.port = None
-                notebook.pid = None
-                notebook.token = None
-                notebook.started_at = None
+                return False
+
+        def _is_http_alive(url):
+            try:
+                resp = requests.head(url, timeout=2)
+                # If we get any response, server is up (even 401 etc)
+                return True
+            except requests.RequestException:
+                return False
+        
+        try:
+            with transaction.atomic():
+                # Lock notebook row to prevent concurrent launches
+                notebook = self.get_object().__class__.objects.select_for_update().get(pk=pk)
+                filename = os.path.basename(notebook.file_path)
+
+                # Check if an existing process is alive and HTTP is responsive
+                if notebook.status == 'running' and notebook.pid:
+                    url = f'http://localhost:{notebook.port}/mercury/{filename}?token={notebook.token}'
+                    if _is_process_alive(notebook.pid) and _is_http_alive(url):
+                        return Response({'detail': 'Already running', 'url': url, 'token': notebook.token})
+                    else:
+                        _cleanup(notebook)
+
+                # Start a new notebook process
+                port = find_free_port()
+                token = secrets.token_urlsafe(32)
+                now = timezone.now()
+                url = f'http://localhost:{port}/mercury/{filename}?token={token}'
+
+                cmd = [
+                    sys.executable, "-m", "mercury_app", notebook.file_path,
+                    f"--port={port}",
+                    "--MercuryApp.timeout=10",
+                    f"--ServerApp.token={token}",
+                ]
+                print("Launching new Mercury process:", cmd)
+
+                process = subprocess.Popen(cmd)
+                notebook.port = port
+                notebook.pid = process.pid
+                notebook.status = 'running'
+                notebook.token = token
+                notebook.started_at = now
+                notebook.url = url 
                 notebook.save()
 
-        # Start new notebook process
-        port = find_free_port()
-        token = secrets.token_urlsafe(32)
-        now = timezone.now()
+                return Response({'url': url, 'token': token, 'started_at': now})
+        except OperationalError as ex:
+            return Response(
+                {'error': 'Notebook server is busy. Please try again in a moment.'},
+                status=status.HTTP_423_LOCKED
+            )   
 
-        cmd = [
-            sys.executable, "-m", "mercury_app", notebook.file_path,
-            f"--port={port}",
-            "--MercuryApp.timeout=600",
-            f"--NotebookApp.token={token}",
-        ]
-        print(cmd)
-        filename = os.path.basename(notebook.file_path)
-        url = f'http://localhost:{port}/mercury/{filename}?token={token}'
-        
-        process = subprocess.Popen(cmd)
-        notebook.port = port
-        notebook.pid = process.pid
-        notebook.status = 'running'
-        notebook.token = token
-        notebook.started_at = now
-        notebook.url = url 
-        notebook.save()
-
-        return Response({'url': url, 'token': token, 'started_at': now})
 
     @action(detail=True, methods=['post'])
     def stop(self, request, pk=None):
