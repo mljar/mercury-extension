@@ -70,7 +70,7 @@ class NotebookViewSet(mixins.ListModelMixin,
         try:
             with transaction.atomic():
                 # Lock notebook row to prevent concurrent launches
-                notebook = self.get_object().__class__.objects.select_for_update().get(pk=pk)
+                notebook = Notebook.objects.select_for_update().get(pk=pk)
                 filename = os.path.basename(notebook.file_path)
 
                 # Check if an existing process is alive and HTTP is responsive
