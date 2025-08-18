@@ -2,6 +2,7 @@ import anywidget
 import traitlets
 
 from .manager import WidgetsManager, MERCURY_MIMETYPE
+from .theme import THEME
 
 def Slider(*args, key="", **kwargs):
     code_uid = WidgetsManager.get_code_uid("Slider", key=key)
@@ -79,43 +80,92 @@ class SliderWidget(anywidget.AnyWidget):
     }
     export default { render };
     """
-    _css = """
-    .mljar-slider-container {
+    _css = f"""
+    .mljar-slider-container {{
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         width: 100%;
         min-width: 120px;
-    }
-    .mljar-slider-top-label {
+        font-family: {THEME.get('font_family', 'Arial, sans-serif')};
+        font-size: {THEME.get('font_size', '14px')};
+        font-weight: {THEME.get('font_weight', 'normal')};
+        color: {THEME.get('text_color', '#222')};
+    }}
+
+    .mljar-slider-top-label {{
         margin-bottom: 6px;
         font-weight: bold;
-        text-align: left;
-        width: 100%;
-    }
-    .mljar-slider-row {
+    }}
+
+    .mljar-slider-row {{
         display: flex;
         flex-direction: row;
         align-items: center;
         width: 100%;
-    }
-    .mljar-slider-input {
+        overflow: hidden;
+    }}
+
+    .mljar-slider-input {{
         flex: 1 1 auto;
         min-width: 60px;
         max-width: 100%;
         margin-right: 16px;
-    }
-    .mljar-slider-value-label {
+        background: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+        border: none;
+        height: 24px; /* big enough for thumb */
+        padding: 0;
+    }}
+
+    .mljar-slider-input:focus {{
+        outline: none;
+    }}
+
+    /* Track */
+    .mljar-slider-input::-webkit-slider-runnable-track {{
+        height: 6px;
+        background: {THEME.get('slider_track_color', '#e0e0e0')};
+        border-radius: {THEME.get('border_radius', '6px')};
+        margin: auto; /* center track in the input box */
+    }}
+    .mljar-slider-input::-moz-range-track {{
+        height: 6px;
+        background: {THEME.get('slider_track_color', '#e0e0e0')};
+        border-radius: {THEME.get('border_radius', '6px')};
+    }}
+
+    /* Thumb */
+    .mljar-slider-input::-webkit-slider-thumb {{
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: {THEME.get('primary_color', '#007bff')};
+        cursor: pointer;
+        margin-top: -5px; /* centers thumb on track */
+    }}
+    .mljar-slider-input::-moz-range-thumb {{
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: {THEME.get('primary_color', '#007bff')};
+        cursor: pointer;
+    }}
+
+    .mljar-slider-value-label {{
         font-weight: bold;
         font-size: 1.1em;
-        min-width: 32px;
-        text-align: left;
+        color: {THEME.get('text_color', '#000')};
         margin-left: 8px;
-        white-space: nowrap;
-    }
+    }}
     """
-    
 
+
+
+    
     value = traitlets.Int(0).tag(sync=True)
     min = traitlets.Int(0).tag(sync=True)
     max = traitlets.Int(100).tag(sync=True)

@@ -2,6 +2,7 @@ import anywidget
 import traitlets
 
 from .manager import WidgetsManager, MERCURY_MIMETYPE
+from .theme import THEME
 
 def TextInput(*args, key="", **kwargs):
     code_uid = WidgetsManager.get_code_uid("TextInput", key=key)
@@ -59,30 +60,44 @@ class TextInputWidget(anywidget.AnyWidget):
     }
     export default { render };
     """
-    _css = """
-    .mljar-textinput-container {
+    _css = f"""
+    .mljar-textinput-container {{
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         width: 100%;
         min-width: 120px;
-    }
-    .mljar-textinput-top-label {
+        font-family: {THEME.get('font_family', 'Arial, sans-serif')};
+        font-size: {THEME.get('font_size', '14px')};
+        font-weight: {THEME.get('font_weight', 'bold')};
+        color: {THEME.get('text_color', '#222')};
+
+    }}
+
+    .mljar-textinput-top-label {{
         margin-bottom: 6px;
-        font-weight: bold;
         text-align: left;
         width: 100%;
-    }
-    .mljar-textinput-input {
+        font-weight: bold;
+    }}
+
+    .mljar-textinput-input {{
         width: 100%;
-        font-size: 1em;
-        border: 1px solid #ddd;
-        border-radius: 6px;
+        border: { '1px solid ' + THEME.get('border_color', '#ccc') if THEME.get('border_visible', True) else 'none'};
+        border-radius: {THEME.get('border_radius', '6px')};
         padding: 6px 10px;
         min-height: 1.6em;
         box-sizing: border-box;
-    }
+        background: {THEME.get('widget_background_color', '#fff')};
+        color: {THEME.get('text_color', '#222')};
+    }}
+
+    .mljar-textinput-input:focus {{
+        outline: none;
+        border-color: {THEME.get('primary_color', '#007bff')};
+    }}
     """
+
 
     value = traitlets.Unicode("").tag(sync=True)
     label = traitlets.Unicode("Enter text").tag(sync=True)
