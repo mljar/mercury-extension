@@ -326,7 +326,7 @@ export class AppModel {
               // https://github.com/jupyter-widgets/ipywidgets/blob/303cae4dc268640a01ce08bf6e22da6c5cd201e4/packages/schema/messages.md?plain=1#L292
               if (
                 (msg as ICommMsgMsg<'iopub'>).content.data.method ===
-                  'echo_update' &&
+                'echo_update' &&
                 this._updateMessages.has(
                   (msg as ICommMsgMsg<'iopub'>).content.comm_id
                 )
@@ -371,6 +371,7 @@ export class AppModel {
     outputs: IOutputAreaModel,
     changes?: IOutputAreaModel.ChangedArgs
   ): void {
+    console.log('onOutputsChange');
     const toList: IOutputModel[] = [];
     const toClean: IOutputModel[] = [];
     if (changes) {
@@ -410,8 +411,13 @@ export class AppModel {
         const cellId = this._outputsToCell.get(outputs);
         const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any);
         const modelId = parsedData['model_id'];
+        const position = parsedData['position'] || 'sidebar';
+        const widget = parsedData['widget'];
+        console.log(cellId, modelId, widget, position);
         if (cellId && modelId) {
           this._ipywidgetToCellId.set(modelId, cellId);
+          // 🔑 Fire signal so AppWidget can reposition
+          this._mercuryWidgetAdded.emit({ cellId, position });
         } else {
           // console.error(
           //   `Failed to find the cell model associated with ipywidget '${modelId}'.`
@@ -428,6 +434,18 @@ export class AppModel {
     this._mutex(() => {
       this._contentChanged.emit(null);
     });
+  }
+
+  private _mercuryWidgetAdded = new Signal<
+    this,
+    { cellId: string; position: string }
+  >(this);
+
+  get mercuryWidgetAdded(): ISignal<
+    this,
+    { cellId: string; position: string }
+  > {
+    return this._mercuryWidgetAdded;
   }
 
   private _context: DocumentRegistry.IContext<INotebookModel>;

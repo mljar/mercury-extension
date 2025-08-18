@@ -28,7 +28,6 @@ export class NotebookCellExecutor implements INotebookCellExecutor {
     sessionDialogs,
     translator
   }: INotebookCellExecutor.IRunCellOptions): Promise<boolean> {
-    console.log('cell-executor runCell');
     translator = translator ?? nullTranslator;
     const trans = translator.load('jupyterlab');
     switch (cell.model.type) {

@@ -11,6 +11,18 @@ from tornado import web
 from ._version import __version__
 version = __version__
 
+import toml
+from pathlib import Path
+
+def load_theme(config_path="config.toml"):
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return {}
+    config = toml.load(config_file)
+    return config.get("theme", {})
+
+THEME = load_theme()
+
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
     """Render the Mercury app."""
 
@@ -88,7 +100,8 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
 
         page_config = self.get_page_config(path)
         page_config["showCode"] = self.settings.get("show_code", False)
-        
+        page_config["theme"] = THEME
+
         return self.write(
             self.render_template(
                 "index.html",

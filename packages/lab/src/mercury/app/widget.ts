@@ -50,9 +50,8 @@ export class AppWidget extends Panel {
     super();
 
     const pageConfig = getPageConfig();
-    this._showCode = pageConfig.showCode ?? true;
+    this._showCode = pageConfig.showCode ?? false;
 
-    console.log('AppWidget constructor');
     this.id = 'mercury-main-panel';
     this.addClass('mercury-main-panel');
     this._model = model;
@@ -64,6 +63,8 @@ export class AppWidget extends Panel {
     // Create panels
     this._left = new Panel();
     this._left.addClass('mercury-left-panel');
+    this._left.node.style.backgroundColor =
+      pageConfig?.theme?.sidebar_background_color ?? '#f8f9fa';
 
     this._rightTop = new Panel();
     this._rightTop.addClass('mercury-right-top-panel'); // For main content
@@ -98,14 +99,14 @@ export class AppWidget extends Panel {
 
     // Collapse button
     const collapseBtn = document.createElement('button');
-    collapseBtn.innerHTML = '⟨';
+    collapseBtn.innerHTML = '«';
     collapseBtn.className = 'mercury-sidebar-toggle mercury-sidebar-collapse';
     collapseBtn.title = 'Hide sidebar';
     this._left.node.appendChild(collapseBtn); // Attach to sidebar
 
     // Expand button (starts hidden)
     const expandBtn = document.createElement('button');
-    expandBtn.innerHTML = '⟩';
+    expandBtn.innerHTML = '»';
     expandBtn.className = 'mercury-sidebar-toggle mercury-sidebar-expand';
     expandBtn.title = 'Show sidebar';
     expandBtn.style.display = 'none';
@@ -125,7 +126,58 @@ export class AppWidget extends Panel {
       collapseBtn.style.display = '';
       expandBtn.style.display = 'none';
     };
+
+    this._model.mercuryWidgetAdded.connect((_, { cellId, position }) => {
+      console.log('widget added');
+      const cellWidget = this._cellItems.find(w => w.cellId === cellId);
+      if (cellWidget && cellWidget.child instanceof CodeCell) {
+        console.log('placeCell', cellId, position);
+        this.placeCell(cellWidget.child, position);
+      }
+    });
   }
+
+  placeCell(cell: CodeCell, posOverride?: string): void {
+    console.log('do place cell');
+    const oa = cell.outputArea;
+
+    let sidebar = false;
+    let bottom = false;
+    let pos = posOverride;
+
+    if (!pos) {
+      for (let i = 0; i < oa.model.length; i++) {
+        const output = oa.model.get(i);
+        if (output.data && MERCURY_MIMETYPE in output.data) {
+          try {
+            const meta = JSON.parse(output.data[MERCURY_MIMETYPE] as string);
+            pos = meta.position || 'sidebar';
+          } catch {
+            pos = 'sidebar';
+          }
+          break;
+        }
+      }
+    }
+
+    sidebar = pos === 'sidebar';
+    bottom = pos === 'bottom';
+
+    if (oa.parent && oa.parent.layout && 'removeWidget' in oa.parent.layout) {
+      (oa.parent.layout as any).removeWidget(oa);
+    }
+
+    if (sidebar) {
+      this._left.addWidget(oa);
+    } else if (bottom) {
+      this._rightBottom.addWidget(oa);
+    } else {
+      this._rightTop.addWidget(oa);
+    }
+
+    this._updatePanelVisibility();
+  }
+
 
   /**
    * Create a new cell widget from a `CellModel`.
@@ -133,7 +185,6 @@ export class AppWidget extends Panel {
    * @param cellModel - `ICellModel`.
    */
   protected createCell(cellModel: ICellModel): CellItemWidget {
-    console.log('lab.src.mercury.app.widget.createCell');
     let item: Cell;
     let sidebar = false; // place cell in the sidebar
     let bottom = false; // place cell in the bottom panel
@@ -157,7 +208,6 @@ export class AppWidget extends Panel {
             try {
               const meta = JSON.parse(data[MERCURY_MIMETYPE] as string);
               const pos = meta.position || 'sidebar';
-              console.log(meta, pos);
               sidebar = pos === 'sidebar';
               bottom = pos === 'bottom';
             } catch (err) {
@@ -208,7 +258,7 @@ export class AppWidget extends Panel {
   }
 
   private _initCellItems(): void {
-    console.log('lab.src.mercury.app.widget._initCellItems ==============');
+    console.log('init cells');
     const cells = this._model.cells;
     for (let i = 0; i < cells?.length; i++) {
       const model = cells.get(i);
@@ -237,6 +287,8 @@ export class AppWidget extends Panel {
         } else {
           this._rightTop.addWidget(oa);
         }
+
+        // this.placeCell(item.child as CodeCell);
       } else {
         // All non-code cells always go to _rightTop
         this._rightTop.addWidget(item.child);
@@ -246,6 +298,13 @@ export class AppWidget extends Panel {
     this._model.widgetUpdated.connect(this._onWidgetUpdate, this);
 
     this._updatePanelVisibility();
+
+    this._model.cells.changed.connect((_, args) => {
+      console.log('cells changed');
+      if (args.type === 'add') {
+        console.log('add');
+      }
+    });
   }
 
   private _updatePanelVisibility() {
@@ -317,7 +376,7 @@ export class AppWidget extends Panel {
     return this._cellItems;
   }
 
-  executeCellItems(): void {
+  /*executeCellItems(): void {
     const cells = this._model.cells;
     this._model.executed = false;
     for (let i = 0; i < cells?.length; i++) {
@@ -325,9 +384,10 @@ export class AppWidget extends Panel {
       this._model.execute(model);
     }
     this._model.executed = true;
-  }
+  }*/
 
   private _onWidgetUpdate(model: AppModel, update: IWidgetUpdate): void {
+    console.log('onWidget update');
     if (!update.cellModelId) {
       // console.warn('A widget not linked to a specific cell has updated.');
       return;

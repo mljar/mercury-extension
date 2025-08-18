@@ -20,7 +20,8 @@ link_underline = true
 # Colors
 primary_color = "#007bff"
 background_color = "#ffffff"
-widget_background_color = "#f8f9fa"
+sidebar_background_color = "f8f9fa"
+widget_background_color = "#ffffff"
 code_background_color = "#f5f5f5"
 dataframe_header_background = "#e9ecef"
 

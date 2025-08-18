@@ -36,9 +36,9 @@ export async function codeCellExecute(
   model.trusted = true;
   let future:
     | Kernel.IFuture<
-        KernelMessage.IExecuteRequestMsg,
-        KernelMessage.IExecuteReplyMsg
-      >
+      KernelMessage.IExecuteRequestMsg,
+      KernelMessage.IExecuteReplyMsg
+    >
     | undefined;
   try {
     const msgPromise = outputAreaExecute(
@@ -95,6 +95,12 @@ export async function codeCellExecute(
       timingInfo['shell.execute_reply'] = finished || new Date().toISOString();
       model.setMetadata('execution', timingInfo);
     }
+    console.log(
+      'Execution finished for cell:',
+      model.id,
+      '=> check outputs for MERCURY_MIMETYPE and move widget'
+    );
+
     return msg;
   } catch (e) {
     // If we started executing, and the cell is still indicating this
