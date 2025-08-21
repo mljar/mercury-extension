@@ -1,4 +1,5 @@
 import os
+import sys
 from os.path import join as pjoin
 from traitlets import Integer, Bool
 
@@ -18,7 +19,7 @@ from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspac
 
 from ._version import __version__
 from .handlers import MercuryHandler
-from .contents_handler import ContentsHandler
+from .custom_contents_handler import MercuryContentsHandler
 
 from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
 
@@ -71,7 +72,9 @@ class MercuryApp(LabServerApp):
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
         self.handlers.append((f"/mercury{path_regex}", MercuryHandler))
-        self.handlers.append((r"/api/contents/(.*\.ipynb)$", ContentsHandler))
+
+        if sys.argv[0].endswith("mercury_app/__main__.py"):
+            self.handlers.append((r"/api/contents/(.*\.ipynb)$", MercuryContentsHandler))
         super().initialize_handlers()
 
     def initialize_templates(self):
