@@ -6,7 +6,7 @@ import { widgets } from './widgets';
 
 import { commands } from './commands';
 
-import { notebookCellExecutor } from './executor';
+import { mercuryCellExecutor, defaultCellExecutor } from './executor';
 
 export {
   AppWidget,
@@ -19,7 +19,8 @@ const plugins: JupyterFrontEndPlugin<any>[] = [
   mercury,
   widgets,
   commands,
-  notebookCellExecutor
+  mercuryCellExecutor,
+  defaultCellExecutor
 ];
 
 export default plugins;

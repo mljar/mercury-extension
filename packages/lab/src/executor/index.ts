@@ -1,20 +1,33 @@
 import {
-  JupyterFrontEnd,
+  // JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
 
-import { INotebookCellExecutor } from '@jupyterlab/notebook';
+import { INotebookCellExecutor, runCell } from '@jupyterlab/notebook';
 
 import { NotebookCellExecutor } from './notebookcell';
 
-export const notebookCellExecutor: JupyterFrontEndPlugin<INotebookCellExecutor> =
+import { IMercuryCellExecutor } from '@mljar/mercury-tokens';
+
+export const mercuryCellExecutor: JupyterFrontEndPlugin<IMercuryCellExecutor> =
   {
-    id: '@mljar/mercury-extension:notebook-cell-executor',
-    description: 'Mercury cell executor',
+    id: '@mljar/mercury-extension:mercury-cell-executor',
+    autoStart: true,
+    provides: IMercuryCellExecutor,
+    activate: () => {
+      console.log('Activate MercuryCellExecutor mercury mememem');
+      return new NotebookCellExecutor();
+    }
+  };
+
+export const defaultCellExecutor: JupyterFrontEndPlugin<INotebookCellExecutor> =
+  {
+    id: '@mljar/mercury-extension:default-cell-executor',
+    description: 'Provides the notebook cell executor.',
     autoStart: true,
     provides: INotebookCellExecutor,
-    activate: (app: JupyterFrontEnd): INotebookCellExecutor => {
-      console.log('Activate NotebookCellExecutor');
-      return new NotebookCellExecutor();
+    activate: (): INotebookCellExecutor => {
+      console.log('Default NotebookCellExecutor heheheh');
+      return Object.freeze({ runCell });
     }
   };

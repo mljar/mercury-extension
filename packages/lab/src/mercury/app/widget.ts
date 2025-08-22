@@ -195,7 +195,6 @@ export class AppWidget extends Panel {
     this._updatePanelVisibility();
   }
 
-
   /**
    * Create a new cell widget from a `CellModel`.
    *

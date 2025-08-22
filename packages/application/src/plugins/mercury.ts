@@ -8,11 +8,14 @@ import type { Cell } from '@jupyterlab/cells';
 import { IEditorServices } from '@jupyterlab/codeeditor';
 import { PageConfig, signalToPromise } from '@jupyterlab/coreutils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
-import { INotebookCellExecutor } from '@jupyterlab/notebook';
+// import { INotebookCellExecutor } from '@jupyterlab/notebook';
 import { ITranslator } from '@jupyterlab/translation';
 import { PromiseDelegate } from '@lumino/coreutils';
 import { Widget } from '@lumino/widgets';
 import { type AppWidget, type MercuryWidget } from '@mljar/mercury-extension';
+
+import { IMercuryCellExecutor } from '@mljar/mercury-tokens';
+console.log(IMercuryCellExecutor);
 
 class Error extends Widget {
   constructor() {
@@ -55,16 +58,18 @@ class Spinner extends Widget {
 export const plugin: JupyterFrontEndPlugin<void> = {
   id: 'mercury-application:opener',
   autoStart: true,
-  requires: [IDocumentManager, INotebookCellExecutor],
+  requires: [IDocumentManager, IMercuryCellExecutor],
   optional: [IEditorServices, ISessionContextDialogs, ITranslator],
   activate: (
     app: JupyterFrontEnd,
     documentManager: IDocumentManager,
-    executor: INotebookCellExecutor,
+    executor: IMercuryCellExecutor,
     editorServices: IEditorServices | null,
     sessionContextDialogs: ISessionContextDialogs | null,
     translator: ITranslator | null
   ) => {
+    console.log('opener!!!!!!!!!!!!');
+    console.log(executor);
     const { mimeTypeService } = editorServices ?? {};
     Promise.all([app.started, app.restored]).then(async ([settings]) => {
       const spinner = new Spinner();
