@@ -20,7 +20,8 @@ link_underline = true
 # Colors
 primary_color = "#007bff"
 background_color = "#ffffff"
-sidebar_background_color = "f8f9fa"
+sidebar_background_color = "red"
+# "f8f9fa"
 widget_background_color = "#3d6fdb"
 
 

@@ -24,6 +24,20 @@ function getPageConfig(): any {
   return JSON.parse(el.textContent || '{}');
 }
 
+async function fetchTheme(url: string) {
+  console.log('fetch theme', url);
+  try {
+    const response = await fetch('http://localhost:8888/mercury/api/theme');
+    if (!response.ok) {
+      throw new Error(`Theme API error: ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn('Failed to fetch theme overrides', err);
+    return {};
+  }
+}
+
 export class AppWidget extends Panel {
   private _showCode = false;
   private _split: SplitPanel;
@@ -50,6 +64,9 @@ export class AppWidget extends Panel {
     super();
 
     const pageConfig = getPageConfig();
+
+    fetchTheme(pageConfig.baseUrl);
+
     this._showCode = pageConfig.showCode ?? false;
 
     this.id = 'mercury-main-panel';

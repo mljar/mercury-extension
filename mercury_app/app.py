@@ -19,6 +19,7 @@ from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspac
 
 from ._version import __version__
 from .handlers import MercuryHandler
+from .theme_handler import ThemeHandler
 from .custom_contents_handler import MercuryContentsHandler
 
 from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
@@ -71,6 +72,10 @@ class MercuryApp(LabServerApp):
 
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
+         # new theme API (must come first)
+        self.handlers.append(("/mercury/api/theme", ThemeHandler))
+
+        # generic Mercury handler (catch-all)
         self.handlers.append((f"/mercury{path_regex}", MercuryHandler))
 
         if sys.argv[0].endswith("mercury_app/__main__.py"):
