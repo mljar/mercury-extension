@@ -353,6 +353,15 @@ export class AppWidget extends Panel {
    */
   protected onAfterAttach(msg: Message): void {
     super.onAfterAttach(msg);
+    // Block only JupyterLab/Lumino menu, keep browser menu
+    this.node.addEventListener(
+      'contextmenu',
+      (event: MouseEvent) => {
+        event.stopImmediatePropagation(); // kill JupyterLab menu
+      },
+      true
+    );
+    this._left.node.addEventListener('contextmenu', e => e.preventDefault());
     // Now the panel is attached, set split sizes
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
