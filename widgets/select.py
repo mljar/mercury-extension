@@ -1,18 +1,18 @@
 import anywidget
 import traitlets
 import json
-from IPython.display import display
+# from IPython.display import display
 from .manager import WidgetsManager, MERCURY_MIMETYPE
 from .theme import THEME
 
 
-def Select(key="", **kwargs):
+def Select(*args, key="", **kwargs):
     code_uid = WidgetsManager.get_code_uid("Select", key=key)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)
         return cached
-    instance = SelectWidget(**kwargs)
+    instance = SelectWidget(*args, **kwargs)
     WidgetsManager.add_widget(code_uid, instance)
     display(instance)
     return instance
@@ -78,35 +78,36 @@ class SelectWidget(anywidget.AnyWidget):
     export default { render };
     """
 
+    # simplified CSS
     _css = f"""
     .mljar-select-container {{
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        width: 100%;
-        font-family: {THEME.get('font_family', 'Arial, sans-serif')};
-        font-size: {THEME.get('font_size', '14px')};
-        color: {THEME.get('text_color', '#222')};
-        margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      font-family: {THEME.get('font_family', 'Arial, sans-serif')};
+      font-size: {THEME.get('font_size', '14px')};
+      color: {THEME.get('text_color', '#222')};
+      margin-bottom: 8px;
     }}
 
     .mljar-select-label {{
-        margin-bottom: 4px;
-        font-weight: bold;
+      margin-bottom: 4px;
+      font-weight: 600;
     }}
 
     .mljar-select-input {{
-        width: 100%;
-        min-width: 120px;
-        padding: 6px;
-        border-radius: {THEME.get('border_radius', '6px')};
-        border: 1px solid {THEME.get('border_color', '#ccc')};
-        background: #fff;
+      width: 100%;
+      padding: 6px;
+      border: 1px solid {THEME.get('border_color', '#ccc')};
+      border-radius: {THEME.get('border_radius', '6px')};
+      background: #fff;
+      box-sizing: border-box;
     }}
 
     .mljar-select-input:disabled {{
-        background: #f5f5f5;
-        color: #888;
+      background: #f5f5f5;
+      color: #888;
+      cursor: not-allowed;
     }}
     """
 
@@ -124,6 +125,7 @@ class SelectWidget(anywidget.AnyWidget):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # default value -> first element of choices
         if (self.value is None or self.value == "") and len(self.choices) > 0:
             self.value = self.choices[0]
         elif self.value not in self.choices and len(self.choices) > 0:
@@ -138,6 +140,6 @@ class SelectWidget(anywidget.AnyWidget):
                 "position": self.position,
             }
             data[0][MERCURY_MIMETYPE] = json.dumps(mercury_mime, indent=4)
-            # if "text/plain" in data[0]:
-            #     del data[0]["text/plain"]
+            if "text/plain" in data[0]:
+                del data[0]["text/plain"]
         return data
