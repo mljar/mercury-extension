@@ -45,6 +45,8 @@ export class AppWidget extends Panel {
   private _rightSplit: SplitPanel;
   private _rightTop: Panel;
   private _rightBottom: Panel;
+  // Keep a stable mapping of cellId -> notebook order index
+  private _cellOrder = new Map<string, number>();
 
   // +-------------------------------------------------------+
   // | mercury-main-panel                                    |
@@ -180,19 +182,86 @@ export class AppWidget extends Panel {
     sidebar = pos === 'sidebar';
     bottom = pos === 'bottom';
 
-    if (oa.parent && oa.parent.layout && 'removeWidget' in oa.parent.layout) {
+    // if (oa.parent && oa.parent.layout && 'removeWidget' in oa.parent.layout) {
+    //   (oa.parent.layout as any).removeWidget(oa);
+    // }
+
+    // if (sidebar) {
+    //   this._left.addWidget(oa);
+    // } else if (bottom) {
+    //   this._rightBottom.addWidget(oa);
+    // } else {
+    //   this._rightTop.addWidget(oa);
+    // }
+    const target = sidebar
+      ? this._left
+      : bottom
+        ? this._rightBottom
+        : this._rightTop;
+
+    if (oa.parent === target) {
+      return;
+    }
+
+    // Remove from old parent if needed
+    if (oa.parent?.layout && 'removeWidget' in oa.parent.layout) {
       (oa.parent.layout as any).removeWidget(oa);
     }
 
-    if (sidebar) {
-      this._left.addWidget(oa);
-    } else if (bottom) {
-      this._rightBottom.addWidget(oa);
+    // Insert with a stable index for inline (rightTop) widgets; append elsewhere
+    const layout: any = target.layout;
+    if (
+      target === this._rightTop &&
+      typeof layout?.insertWidget === 'function'
+    ) {
+      layout.insertWidget(this._indexFor(cell), oa);
     } else {
-      this._rightTop.addWidget(oa);
+      target.addWidget(oa);
     }
 
     this._updatePanelVisibility();
+  }
+
+  // --- Stable ordering helpers ---------------------------------------------
+  private _rebuildCellOrder() {
+    const cells = this._model.cells;
+    this._cellOrder.clear();
+    for (let i = 0; i < cells.length; i++) {
+      this._cellOrder.set(cells.get(i).id, i);
+    }
+  }
+
+  private _indexFor(cell: CodeCell) {
+    // Compute index relative to other widgets in rightTop to preserve order
+    const id = cell.model.id;
+    const order = this._cellOrder.get(id);
+    if (order === null) {
+      return this._rightTop.widgets.length;
+    }
+    // Map notebook order to current rightTop child order
+    // We pick the insertion index as the count of rightTop widgets whose cell order < this cell’s order
+    let idx = 0;
+    for (const w of this._rightTop.widgets) {
+      // Only count output areas that belong to known cells
+      const widgetCell = this._cellItems.find(
+        ci =>
+          ci.child instanceof CodeCell &&
+          (ci.child as CodeCell).outputArea === w
+      );
+      if (!widgetCell) {
+        continue;
+      }
+      const otherId = widgetCell.child.model.id;
+      const otherOrder = this._cellOrder.get(otherId);
+      if (
+        otherOrder !== undefined &&
+        order !== undefined &&
+        otherOrder < order
+      ) {
+        idx++;
+      }
+    }
+    return idx;
   }
 
   /**
@@ -276,6 +345,8 @@ export class AppWidget extends Panel {
   private _initCellItems(): void {
     console.log('init cells');
     const cells = this._model.cells;
+    // rebuild cell order
+    this._rebuildCellOrder();
     for (let i = 0; i < cells?.length; i++) {
       const model = cells.get(i);
       const item = this.createCell(model);
@@ -317,37 +388,50 @@ export class AppWidget extends Panel {
 
     this._model.cells.changed.connect((_, args) => {
       console.log('cells changed');
+      this._rebuildCellOrder();
       if (args.type === 'add') {
         console.log('add');
       }
     });
   }
 
+  private _lastLeftVisible = false;
+  private _lastBottomVisible = false;
   private _updatePanelVisibility() {
     // Hide/show left panel
-    if (this._left.widgets.length === 0) {
+    const leftVisible = this._left.widgets.length > 0;
+    if (!leftVisible) {
       this._left.hide();
-      this._split.setRelativeSizes([0, 1]);
+
+      if (this._lastLeftVisible !== leftVisible) {
+        this._split.setRelativeSizes([0, 1]);
+      }
     } else {
       this._left.show();
-      this._split.setRelativeSizes([0.2, 0.8]);
+
+      if (this._lastLeftVisible !== leftVisible) {
+        this._split.setRelativeSizes([0.2, 0.8]);
+      }
     }
+    this._lastLeftVisible = leftVisible;
 
     // Hide/show right bottom panel
-    if (this._rightBottom.widgets.length === 0) {
+
+    const bottomVisible = this._rightBottom.widgets.length > 0;
+    if (!bottomVisible) {
       this._rightBottom.hide();
-      this._rightSplit.setRelativeSizes([1, 0]);
+
+      if (this._lastBottomVisible !== bottomVisible) {
+        this._rightSplit.setRelativeSizes([1, 0]);
+      }
     } else {
       this._rightBottom.show();
-      this._rightSplit.setRelativeSizes([0.85, 0.15]);
-    }
 
-    // Margin logic for rightTop
-    if (this._left.widgets.length === 0) {
-      this._rightTop.addClass('mercury-panel-with-margin');
-    } else {
-      this._rightTop.removeClass('mercury-panel-with-margin');
+      if (this._lastBottomVisible !== bottomVisible) {
+        this._rightSplit.setRelativeSizes([0.85, 0.15]);
+      }
     }
+    this._lastBottomVisible = bottomVisible;
   }
 
   /**

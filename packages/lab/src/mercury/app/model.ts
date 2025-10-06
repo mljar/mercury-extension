@@ -409,19 +409,33 @@ export class AppModel {
     for (const output of toList) {
       if (MERCURY_MIMETYPE in (output.data ?? {})) {
         const cellId = this._outputsToCell.get(outputs);
+        // const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any);
+        // const modelId = parsedData['model_id'];
+        // const position = parsedData['position'] || 'sidebar';
+        // const widget = parsedData['widget'];
+        // console.log(cellId, modelId, widget, position);
+        // if (cellId && modelId) {
+        //   this._ipywidgetToCellId.set(modelId, cellId);
+        //   // 🔑 Fire signal so AppWidget can reposition
+        //   this._mercuryWidgetAdded.emit({ cellId, position });
+        // } else {
+        //   // console.error(
+        //   //   `Failed to find the cell model associated with ipywidget '${modelId}'.`
+        //   // );
+        // }
         const parsedData = JSON.parse(output.data[MERCURY_MIMETYPE] as any);
         const modelId = parsedData['model_id'];
         const position = parsedData['position'] || 'sidebar';
         const widget = parsedData['widget'];
         console.log(cellId, modelId, widget, position);
         if (cellId && modelId) {
-          this._ipywidgetToCellId.set(modelId, cellId);
-          // 🔑 Fire signal so AppWidget can reposition
-          this._mercuryWidgetAdded.emit({ cellId, position });
-        } else {
-          // console.error(
-          //   `Failed to find the cell model associated with ipywidget '${modelId}'.`
-          // );
+          // Only emit when first seen or when position actually changed
+          const prev = this._widgetMeta.get(modelId);
+          if (!prev || prev.position !== position || prev.cellId !== cellId) {
+            this._widgetMeta.set(modelId, { cellId, position });
+            this._ipywidgetToCellId.set(modelId, cellId);
+            this._mercuryWidgetAdded.emit({ cellId, position });
+          }
         }
       }
     }
@@ -460,7 +474,7 @@ export class AppModel {
   private _contentChanged: Signal<this, null>;
   private _ipywidgetToCellId = new Map<string, string>();
   private _outputsToCell = new WeakMap<IOutputAreaModel, string>();
-
+  private _widgetMeta = new Map<string, { cellId: string; position: string }>();
   /**
    * Update ipywidget message per widget ID.
    *
