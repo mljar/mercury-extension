@@ -413,9 +413,11 @@ export class AppWidget extends Panel {
           console.log(model, id);
 
           if (model) {
-            foundCount++;
             const isConnected = !!(model as any).comm_live; // boolean
             console.log({ isConnected });
+            if (isConnected) {
+              foundCount++;
+            }
           }
         }
       }
@@ -424,6 +426,29 @@ export class AppWidget extends Panel {
     console.log(
       `[ipywidgets] cells with widget ids: ${totalWithId}, models found in manager: ${foundCount}`
     );
+    if (totalWithId > 0 && foundCount === 0) {
+      console.log('re-execute all');
+      const cells = this._model.cells;
+      const cellCount = cells.length;
+      // Execute all code cells below the updated cell
+      for (let i = 0; i < cellCount; i++) {
+        const cellModel = cells.get(i);
+        if (cellModel.type === 'code') {
+          const cellWidget = this._cellItems.find(
+            w => w.cellId === cellModel.id
+          );
+          if (cellWidget && cellWidget.child instanceof CodeCell) {
+            codeCellExecute(
+              cellWidget.child as CodeCell,
+              this._model.context.sessionContext,
+              {
+                deletedCells: this._model.context.model?.deletedCells ?? []
+              }
+            );
+          }
+        }
+      }
+    }
   }
 
   // 1) Safe resolver: never throws, always resolves to model or undefined
@@ -631,16 +656,6 @@ export class AppWidget extends Panel {
   get cellWidgets(): CellItemWidget[] {
     return this._cellItems;
   }
-
-  /*executeCellItems(): void {
-    const cells = this._model.cells;
-    this._model.executed = false;
-    for (let i = 0; i < cells?.length; i++) {
-      const model = cells.get(i);
-      this._model.execute(model);
-    }
-    this._model.executed = true;
-  }*/
 
   private _onWidgetUpdate(model: AppModel, update: IWidgetUpdate): void {
     console.log('onWidget update');
