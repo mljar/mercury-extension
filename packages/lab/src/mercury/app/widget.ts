@@ -223,39 +223,80 @@ export class AppWidget extends Panel {
       this._cellOrder.set(cells.get(i).id, i);
     }
   }
-
   private _indexFor(cell: CodeCell) {
-    // Compute index relative to other widgets in rightTop to preserve order
     const id = cell.model.id;
     const order = this._cellOrder.get(id);
-    if (order === null) {
+
+    // ⬇️ if the cell isn't in the map yet, APPEND instead of inserting at 0
+    if (order === undefined) {
       return this._rightTop.widgets.length;
     }
-    // Map notebook order to current rightTop child order
-    // We pick the insertion index as the count of rightTop widgets whose cell order < this cell’s order
+
     let idx = 0;
     for (const w of this._rightTop.widgets) {
-      // Only count output areas that belong to known cells
       const widgetCell = this._cellItems.find(
         ci =>
           ci.child instanceof CodeCell &&
           (ci.child as CodeCell).outputArea === w
       );
-      if (!widgetCell) {
-        continue;
-      }
+      if (!widgetCell) continue;
+
       const otherId = widgetCell.child.model.id;
       const otherOrder = this._cellOrder.get(otherId);
-      if (
-        otherOrder !== undefined &&
-        order !== undefined &&
-        otherOrder < order
-      ) {
+      if (otherOrder !== undefined && otherOrder < order) {
         idx++;
       }
     }
     return idx;
   }
+
+  private _inlineIndexForOrder(order: number, container: Panel): number {
+    let idx = 0;
+    for (const w of container.widgets) {
+      const ci = this._cellItems.find(c =>
+        c.child === w ||
+        (c.child instanceof CodeCell &&
+          (c.child as CodeCell).outputArea === w)
+      );
+      if (!ci) continue;
+      const otherOrder = this._cellOrder.get(ci.child.model.id);
+      if (otherOrder !== undefined && otherOrder < order) idx++;
+    }
+    return idx;
+  }
+
+  // private _indexFor(cell: CodeCell) {
+  //   // Compute index relative to other widgets in rightTop to preserve order
+  //   const id = cell.model.id;
+  //   const order = this._cellOrder.get(id);
+  //   if (order === null) {
+  //     return this._rightTop.widgets.length;
+  //   }
+  //   // Map notebook order to current rightTop child order
+  //   // We pick the insertion index as the count of rightTop widgets whose cell order < this cell’s order
+  //   let idx = 0;
+  //   for (const w of this._rightTop.widgets) {
+  //     // Only count output areas that belong to known cells
+  //     const widgetCell = this._cellItems.find(
+  //       ci =>
+  //         ci.child instanceof CodeCell &&
+  //         (ci.child as CodeCell).outputArea === w
+  //     );
+  //     if (!widgetCell) {
+  //       continue;
+  //     }
+  //     const otherId = widgetCell.child.model.id;
+  //     const otherOrder = this._cellOrder.get(otherId);
+  //     if (
+  //       otherOrder !== undefined &&
+  //       order !== undefined &&
+  //       otherOrder < order
+  //     ) {
+  //       idx++;
+  //     }
+  //   }
+  //   return idx;
+  // }
 
   /**
    * Create a new cell widget from a `CellModel`.
@@ -379,14 +420,133 @@ export class AppWidget extends Panel {
 
     this._updatePanelVisibility();
 
+    // this._model.cells.changed.connect((_, args) => {
+    //   console.log('cells changed');
+    //   this._rebuildCellOrder();
+    //   if (args.type === 'add') {
+    //     console.log('add');
+    //   }
+    // });
     this._model.cells.changed.connect((_, args) => {
-      console.log('cells changed');
-      this._rebuildCellOrder();
-      if (args.type === 'add') {
-        console.log('add');
+      console.log('cells changed', args);
+
+      switch (args.type) {
+        case 'add': {
+          this._rebuildCellOrder();
+          // args.newIndex, args.newValues: ICellModel[]
+          let insertAt = args.newIndex;
+          for (const m of args.newValues as ICellModel[]) {
+            const item = this.createCell(m);
+            this._cellItems.splice(insertAt, 0, item);
+            this._insertItem(item, insertAt);
+            insertAt++;
+          }
+          this._rebuildCellOrder();
+          this._updatePanelVisibility();
+          void this._checkWidgetModels();
+          break;
+        }
+
+        case 'remove': {
+          // args.oldIndex, args.oldValues: ICellModel[]
+          for (let i = 0; i < (args.oldValues as ICellModel[]).length; i++) {
+            const removedItem = this._cellItems.splice(args.oldIndex, 1)[0];
+            if (removedItem) this._disposeItem(removedItem);
+          }
+          this._rebuildCellOrder();
+          this._updatePanelVisibility();
+          break;
+        }
+
+        case 'move': {
+          // args.oldIndex -> args.newIndex
+          const [moved] = this._cellItems.splice(args.oldIndex, 1);
+          this._cellItems.splice(args.newIndex, 0, moved);
+          this._rebuildCellOrder();
+
+          if (moved.child instanceof CodeCell) {
+            const cell = moved.child as CodeCell;
+            const oa = cell.outputArea;
+            // Only inline (rightTop) needs strict ordering
+            const parent = oa.parent;
+            if (parent === this._rightTop) {
+              (parent.layout as any).removeWidget(oa);
+              const idx = this._indexFor(cell);
+              (this._rightTop.layout as any).insertWidget(idx, oa);
+            }
+          } else {
+            const w = moved.child;
+            if (w.parent === this._rightTop) {
+              (this._rightTop.layout as any).removeWidget(w);
+              const idx = Math.min(args.newIndex, this._rightTop.widgets.length);
+              (this._rightTop.layout as any).insertWidget(idx, w);
+            }
+          }
+          this._updatePanelVisibility();
+          break;
+        }
+
+        case 'set': {
+          // E.g. metadata/output changed; placement could change (sidebar/bottom/inline)
+          // Recompute position for that specific cell
+          //const m = this._model.cells.get(args.newIndex);
+          const item = this._cellItems[args.newIndex];
+          if (item?.child instanceof CodeCell) {
+            // Will read MERCURY_MIMETYPE and move outputArea accordingly
+            this.placeCell(item.child as CodeCell);
+          }
+          this._updatePanelVisibility();
+          break;
+        }
+
+        default: {
+          // Fallback: keep things sane
+          this._rebuildCellOrder();
+          this._updatePanelVisibility();
+        }
       }
     });
+
     this._checkWidgetModels();
+  }
+
+  private _insertItem(item: CellItemWidget, modelIndex: number): void {
+    const order = this._cellOrder.get(item.child.model.id);
+
+    if (item.child instanceof CodeCell) {
+      const cell = item.child as CodeCell;
+      const oa = cell.outputArea;
+
+      if (this._showCode) {
+        this._rightTop.addWidget(cell);
+        const outputEl = cell.node.querySelector('.jp-Cell-outputWrapper') as HTMLElement | null;
+        if (outputEl) outputEl.style.display = 'none';
+      }
+
+      const target = item.sidebar ? this._left : item.bottom ? this._rightBottom : this._rightTop;
+
+      if (target === this._rightTop) {
+        const idx = this._indexFor(cell);
+        (this._rightTop.layout as any).insertWidget(idx, oa);
+      } else {
+        // ordered insert for sidebar/bottom as well
+        const idx = order === undefined ? target.widgets.length : this._inlineIndexForOrder(order, target);
+        (target.layout as any).insertWidget(idx, oa);
+      }
+    } else {
+      // markdown/raw -> rightTop, ordered
+      const idx = order === undefined ? this._rightTop.widgets.length : this._inlineIndexForOrder(order, this._rightTop);
+      (this._rightTop.layout as any).insertWidget(idx, item.child);
+    }
+  }
+
+  private _disposeItem(item: CellItemWidget): void {
+    if (item.child instanceof CodeCell) {
+      item.child.outputArea.dispose();
+      item.child.dispose();
+    } else {
+      item.child.dispose();
+    }
   }
 
   private async _checkWidgetModels(): Promise<void> {

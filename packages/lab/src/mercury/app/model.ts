@@ -240,7 +240,6 @@ export class AppModel {
   /*************************************************
    * Internal: Cell list ↔ outputs mapping
    *************************************************/
-
   private _onCellListChange(
     cells: CellList,
     changes?: IObservableList.IChangedArgs<ICellModel>
@@ -248,31 +247,47 @@ export class AppModel {
     let toConnect: readonly ICellModel[] | CellList = cells;
     let toDisconnect: readonly ICellModel[] = [];
 
-    if (changes) {
-      switch (changes.type) {
-        case 'add':
-          toConnect = changes.newValues;
-          break;
-
-        case 'remove':
-          toDisconnect = changes.oldValues;
-          break;
-        case 'set':
-          toConnect = changes.newValues;
-          toDisconnect = changes.oldValues;
-
-          break;
-        case 'move':
-        default:
-          break; // nothing
+    // NEW: ochronny fallback gdy changes jest puste lub bez .type
+    if (!changes || typeof (changes as any).type !== 'string') {
+      // Odłącz wszystkie istniejące nasłuchy outputs
+      for (const cell of cells as unknown as readonly ICellModel[]) {
+        if (!cell || cell.type !== 'code') continue;
+        const code = cell as ICodeCellModel;
+        code.outputs.changed.disconnect(this._onOutputsChange, this);
       }
+      this._outputsToCell = new WeakMap(); // czyść mapę (WeakMap i tak nie jest iterowalny)
+
+      // Podłącz aktualne komórki na czysto
+      for (const cell of cells as unknown as readonly ICellModel[]) {
+        if (!cell || cell.type !== 'code') continue;
+        const code = cell as ICodeCellModel;
+        this._outputsToCell.set(code.outputs, code.id);
+        this._onOutputsChange(code.outputs); // prime
+        code.outputs.changed.connect(this._onOutputsChange, this);
+      }
+      return;
+    }
+
+    // Normalna ścieżka
+    switch (changes.type) {
+      case 'add':
+        toConnect = changes.newValues ?? [];
+        break;
+      case 'remove':
+        toDisconnect = changes.oldValues ?? [];
+        break;
+      case 'set':
+        toConnect = changes.newValues ?? [];
+        toDisconnect = changes.oldValues ?? [];
+        break;
+      case 'move':
+      default:
+        break; // nothing
     }
 
     // Disconnect
     for (const cellModel of toDisconnect) {
-      if (cellModel.type !== 'code') {
-        continue;
-      }
+      if (!cellModel || cellModel.type !== 'code') continue;
       const codeModel = cellModel as ICodeCellModel;
       this._outputsToCell.delete(codeModel.outputs);
       codeModel.outputs.changed.disconnect(this._onOutputsChange, this);
@@ -280,16 +295,63 @@ export class AppModel {
 
     // Connect
     for (const cellModel of toConnect as readonly ICellModel[]) {
-      if (cellModel.type !== 'code') {
-        continue;
-      }
+      if (!cellModel || cellModel.type !== 'code') continue;
       const codeModel = cellModel as ICodeCellModel;
       this._outputsToCell.set(codeModel.outputs, codeModel.id);
-      // Prime any existing outputs
-      this._onOutputsChange(codeModel.outputs);
+      this._onOutputsChange(codeModel.outputs); // prime istniejące outputy
       codeModel.outputs.changed.connect(this._onOutputsChange, this);
     }
   }
+
+  // private _onCellListChange(
+  //   cells: CellList,
+  //   changes?: IObservableList.IChangedArgs<ICellModel>
+  // ): void {
+  //   let toConnect: readonly ICellModel[] | CellList = cells;
+  //   let toDisconnect: readonly ICellModel[] = [];
+
+  //   if (changes) {
+  //     switch (changes.type) {
+  //       case 'add':
+  //         toConnect = changes.newValues;
+  //         break;
+
+  //       case 'remove':
+  //         toDisconnect = changes.oldValues;
+  //         break;
+  //       case 'set':
+  //         toConnect = changes.newValues;
+  //         toDisconnect = changes.oldValues;
+
+  //         break;
+  //       case 'move':
+  //       default:
+  //         break; // nothing
+  //     }
+  //   }
+
+  //   // Disconnect
+  //   for (const cellModel of toDisconnect) {
+  //     if (cellModel.type !== 'code') {
+  //       continue;
+  //     }
+  //     const codeModel = cellModel as ICodeCellModel;
+  //     this._outputsToCell.delete(codeModel.outputs);
+  //     codeModel.outputs.changed.disconnect(this._onOutputsChange, this);
+  //   }
+
+  //   // Connect
+  //   for (const cellModel of toConnect as readonly ICellModel[]) {
+  //     if (cellModel.type !== 'code') {
+  //       continue;
+  //     }
+  //     const codeModel = cellModel as ICodeCellModel;
+  //     this._outputsToCell.set(codeModel.outputs, codeModel.id);
+  //     // Prime any existing outputs
+  //     this._onOutputsChange(codeModel.outputs);
+  //     codeModel.outputs.changed.connect(this._onOutputsChange, this);
+  //   }
+  // }
 
   private _outputsToCellEntries(): Array<[IOutputAreaModel, string]> {
     // WeakMap is not iterable; maintain a side store when setting if you need iteration.
