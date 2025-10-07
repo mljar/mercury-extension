@@ -15,6 +15,10 @@ import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
 import { codeCellExecute } from '../../executor/codecell';
 
+import type { IRenderMimeRegistry } from '@jupyterlab/rendermime';
+const WIDGET_MIMETYPE = 'application/vnd.jupyter.widget-view+json';
+
+
 function getPageConfig(): any {
   const el = document.getElementById('jupyter-config-data');
   if (!el) {
@@ -182,17 +186,6 @@ export class AppWidget extends Panel {
     sidebar = pos === 'sidebar';
     bottom = pos === 'bottom';
 
-    // if (oa.parent && oa.parent.layout && 'removeWidget' in oa.parent.layout) {
-    //   (oa.parent.layout as any).removeWidget(oa);
-    // }
-
-    // if (sidebar) {
-    //   this._left.addWidget(oa);
-    // } else if (bottom) {
-    //   this._rightBottom.addWidget(oa);
-    // } else {
-    //   this._rightTop.addWidget(oa);
-    // }
     const target = sidebar
       ? this._left
       : bottom
@@ -393,7 +386,161 @@ export class AppWidget extends Panel {
         console.log('add');
       }
     });
+    this._checkWidgetModels();
   }
+
+  private async _checkWidgetModels(): Promise<void> {
+    console.log('check widgets models !');
+    const manager = await this.getWidgetManager(this._model.rendermime);;
+    console.log(manager);
+    if (!manager) {
+      console.warn('No widget manager – cannot check widget models');
+      return;
+    }
+
+    let totalWithId = 0;
+    let foundCount = 0;
+
+    for (const item of this._cellItems) {
+      if (!(item.child instanceof CodeCell)) {
+        continue;
+      }
+      const ids = this.getWidgetModelIdsFromCell(item.child);
+      if (ids.length > 0) {
+        totalWithId += ids.length;
+        for (const id of ids) {
+          const model = await this.resolveIpyModel(manager, id);
+          console.log(model, id);
+
+          if (model) {
+            foundCount++;
+            const isConnected = !!(model as any).comm_live; // boolean
+            console.log({ isConnected });
+          }
+        }
+      }
+    }
+
+    console.log(
+      `[ipywidgets] cells with widget ids: ${totalWithId}, models found in manager: ${foundCount}`
+    );
+  }
+
+  // 1) Safe resolver: never throws, always resolves to model or undefined
+  private async resolveIpyModel(
+    manager: any,
+    id: string
+  ): Promise<any | undefined> {
+    if (!manager) {
+      return undefined;
+    }
+
+    // Preferred (newer API) – synchronous, returns model | undefined
+    if (typeof manager.getModel === 'function') {
+      try {
+        return manager.getModel(id);
+      } catch {
+        return undefined;
+      }
+    }
+
+    // Older API – may throw or return a rejecting Promise
+    if (typeof manager.get_model === 'function') {
+      try {
+        const res = manager.get_model(id);
+        // Some impls return a Promise, some return the model
+        if (res && typeof res.then === 'function') {
+          try {
+            return await res; // catch rejection -> undefined
+          } catch {
+            return undefined;
+          }
+        }
+        return res;
+      } catch {
+        return undefined;
+      }
+    }
+
+    // Private map fallback – values often are Promise<WidgetModel>
+    const map = (manager as any)?._models;
+    if (map && typeof map.get === 'function') {
+      try {
+        const res = map.get(id);
+        if (res && typeof res.then === 'function') {
+          try {
+            return await res;
+          } catch {
+            return undefined;
+          }
+        }
+        return res;
+      } catch {
+        return undefined;
+      }
+    }
+
+    return undefined;
+  }
+
+  /** Get the live WidgetManager instance from a rendermime registry. */
+  /** Best-effort: extract the ipywidgets manager from the rendermime. */
+  private async getWidgetManager(
+    rendermime: IRenderMimeRegistry
+  ): Promise<any | null> {
+    const factory: any = rendermime.getFactory(WIDGET_MIMETYPE);
+    if (!factory) return null;
+
+    // small helper
+    const unwrap = async (x: any) =>
+      x?.promise ? await x.promise : (typeof x?.then === 'function' ? await x : x);
+
+    // 1) Newer builds
+    if (factory.widgetManager) return await unwrap(factory.widgetManager);
+
+    // 2) Some builds stash it on rendermime
+    const rmAny: any = rendermime as any;
+    if (rmAny.widgets?.manager) return await unwrap(rmAny.widgets.manager);
+
+    // 3) Create a renderer and read its manager
+    if (typeof factory.createRenderer === 'function') {
+      const r: any = factory.createRenderer({ mimeType: WIDGET_MIMETYPE });
+      const cand = r?.manager ?? r?._manager ?? r?.widgets?.manager ?? factory?._manager;
+      return await unwrap(cand);
+    }
+
+    // 4) Last resort: private field
+    return await unwrap((factory as any)._manager ?? null);
+  }
+
+
+  /** Collect widget model_ids from a CodeCell’s OutputArea model. */
+  private getWidgetModelIdsFromCell(cell: CodeCell): string[] {
+    const ids: string[] = [];
+    const oaModel = cell.outputArea.model;
+    for (let i = 0; i < oaModel.length; i++) {
+      const output = oaModel.get(i);
+      const data: any = output.data;
+      if (data && WIDGET_MIMETYPE in data) {
+        const payload = data[WIDGET_MIMETYPE];
+        const modelId =
+          typeof payload === 'string'
+            ? (() => {
+              try {
+                return JSON.parse(payload).model_id;
+              } catch {
+                return undefined;
+              }
+            })()
+            : payload?.model_id;
+        if (modelId) {
+          ids.push(modelId);
+        }
+      }
+    }
+    return ids;
+  }
+
 
   private _lastLeftVisible = false;
   private _lastBottomVisible = false;
