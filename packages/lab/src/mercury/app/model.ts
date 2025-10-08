@@ -1,3 +1,4 @@
+import { showDialog, Dialog } from '@jupyterlab/apputils';
 import { CellChange, YNotebook, createMutex } from '@jupyter/ydoc';
 import type { ISessionContext } from '@jupyterlab/apputils';
 import {
@@ -27,6 +28,7 @@ import type {
 } from '@jupyterlab/services/lib/kernel/messages';
 import { ISignal, Signal } from '@lumino/signaling';
 import * as Y from 'yjs';
+import { ServerHealthMonitor } from './healthmonitor';
 
 /*************************************************
  * Constants & Types
@@ -84,6 +86,18 @@ export class AppModel {
       void this._context.save().then(() => {
         this._ready.emit(null);
       });
+
+      const baseUrl =
+        this._context.sessionContext.session?.kernel?.serverSettings.baseUrl ??
+        '/';
+
+      // Start server health monitor
+      // Keep a reference if you want to dispose it later.
+      new ServerHealthMonitor(
+        baseUrl,
+        () => { console.log('down') }, // void showServerDownDialog(this._context.sessionContext); },
+        () => { console.log('recovery') }// showServerRecoveredToast(); }
+      );
     });
 
     // Keep widget ↔ cell mapping in sync with cell list changes
@@ -378,6 +392,20 @@ export class AppModel {
    * Internal: Kernel wiring
    *************************************************/
 
+  private _onConnectionStatusChanged = (
+    _kernel: Kernel.IKernelConnection,
+    status: Kernel.ConnectionStatus
+  ): void => {
+    console.log('kernel status', status);
+    // status is one of: 'connecting' | 'connected' | 'disconnected'
+    if (status === 'disconnected') {
+      void this._notifyKernelDisconnected();
+    }
+
+    // Optional: warn on flaky network
+    // if (status === 'connecting') { /* maybe show a non-blocking toast */ }
+  };
+
   private _onKernelChanged(
     session: ISessionContext,
     changes: IChangedArgs<
@@ -389,11 +417,21 @@ export class AppModel {
     const prev = changes.oldValue;
     if (prev) {
       prev.anyMessage.disconnect(this._onKernelMessage, this);
+      // remove old connectionStatus listener
+      prev.connectionStatusChanged.disconnect(
+        this._onConnectionStatusChanged,
+        this
+      );
     }
 
     const next = changes.newValue;
     if (next) {
       next.anyMessage.connect(this._onKernelMessage, this);
+      // listen for connection changes
+      next.connectionStatusChanged.connect(
+        this._onConnectionStatusChanged,
+        this
+      );
     }
   }
 
@@ -575,6 +613,35 @@ export class AppModel {
     });
   }
 
+  private async _notifyKernelDisconnected(): Promise<void> {
+    if (this._disconnectedNotified) {
+      return;
+    }
+    this._disconnectedNotified = true;
+
+    const result = await showDialog({
+      title: 'Connection lost',
+      body: 'Computing backend disconnected.',
+      buttons: [
+        //Dialog.createButton({ label: 'Restart kernel', accept: true }),
+        //Dialog.okButton({ label: 'OK' }),
+        Dialog.cancelButton({ label: 'Close' })
+      ]
+    });
+
+    // Handle the choice
+    const label = result.button.label;
+    try {
+      if (label === 'OK') {
+        // Reload is often the cleanest way to recover websocket/session state
+        // window.location.reload();
+      }
+    } finally {
+      // allow future notifications if user recovered successfully
+      this._disconnectedNotified = false;
+    }
+  }
+
   /*************************************************
    * Private state
    *************************************************/
@@ -602,6 +669,7 @@ export class AppModel {
   >(this);
 
   private readonly _mutex = createMutex();
+  private _disconnectedNotified = false; // add this
 }
 
 /*************************************************
