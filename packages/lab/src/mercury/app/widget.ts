@@ -368,6 +368,13 @@ export class AppWidget extends Panel {
       }
     }
 
+    // executionCount updates when an execution finishes (reply received)
+    widget.model.stateChanged.connect((_, args) => {
+      if (args.name === 'executionCount') {
+        this.updatePanelVisibility();
+      }
+    });
+
     return new CellItemWidget(widget, {
       cellId: cellModel.id,
       cellWidget: widget,
@@ -650,7 +657,8 @@ export class AppWidget extends Panel {
           this._model.context.sessionContext,
           {
             deletedCells: this._model.context.model?.deletedCells ?? []
-          });
+          }
+        );
       }
     }
   }
