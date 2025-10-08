@@ -247,19 +247,19 @@ export class AppModel {
     let toConnect: readonly ICellModel[] | CellList = cells;
     let toDisconnect: readonly ICellModel[] = [];
 
-    // NEW: ochronny fallback gdy changes jest puste lub bez .type
     if (!changes || typeof (changes as any).type !== 'string') {
-      // Odłącz wszystkie istniejące nasłuchy outputs
       for (const cell of cells as unknown as readonly ICellModel[]) {
-        if (!cell || cell.type !== 'code') continue;
+        if (!cell || cell.type !== 'code') {
+          continue;
+        }
         const code = cell as ICodeCellModel;
         code.outputs.changed.disconnect(this._onOutputsChange, this);
       }
-      this._outputsToCell = new WeakMap(); // czyść mapę (WeakMap i tak nie jest iterowalny)
-
-      // Podłącz aktualne komórki na czysto
+      this._outputsToCell = new WeakMap();
       for (const cell of cells as unknown as readonly ICellModel[]) {
-        if (!cell || cell.type !== 'code') continue;
+        if (!cell || cell.type !== 'code') {
+          continue;
+        }
         const code = cell as ICodeCellModel;
         this._outputsToCell.set(code.outputs, code.id);
         this._onOutputsChange(code.outputs); // prime
@@ -287,7 +287,9 @@ export class AppModel {
 
     // Disconnect
     for (const cellModel of toDisconnect) {
-      if (!cellModel || cellModel.type !== 'code') continue;
+      if (!cellModel || cellModel.type !== 'code') {
+        continue;
+      }
       const codeModel = cellModel as ICodeCellModel;
       this._outputsToCell.delete(codeModel.outputs);
       codeModel.outputs.changed.disconnect(this._onOutputsChange, this);
@@ -295,7 +297,9 @@ export class AppModel {
 
     // Connect
     for (const cellModel of toConnect as readonly ICellModel[]) {
-      if (!cellModel || cellModel.type !== 'code') continue;
+      if (!cellModel || cellModel.type !== 'code') {
+        continue;
+      }
       const codeModel = cellModel as ICodeCellModel;
       this._outputsToCell.set(codeModel.outputs, codeModel.id);
       this._onOutputsChange(codeModel.outputs); // prime istniejące outputy

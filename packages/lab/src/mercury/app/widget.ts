@@ -10,26 +10,61 @@ import {
 } from '@jupyterlab/cells';
 import { Message } from '@lumino/messaging';
 import { Signal } from '@lumino/signaling';
-import { Panel, SplitPanel } from '@lumino/widgets';
+import { Panel, SplitPanel, Widget } from '@lumino/widgets';
 import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
 import { codeCellExecute } from '../../executor/codecell';
+import {
+  getWidgetManager,
+  resolveIpyModel,
+  getWidgetModelIdsFromCell
+} from './ipyWidgetsHelpers';
 
-import type { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-const WIDGET_MIMETYPE = 'application/vnd.jupyter.widget-view+json';
+import { removeElements } from './domHelpers';
 
+/**
+ * Default layout ratios and colors.
+ */
+const SIDEBAR_RATIO = 0.2; // 20% width
+const MAIN_RATIO = 1 - SIDEBAR_RATIO; // 80% width
+const TOP_RATIO = 0.85; // 85% height
+const BOTTOM_RATIO = 1 - TOP_RATIO; // 15% height
+const DEFAULT_SIDEBAR_BG = '#f8f9fa';
 
-function getPageConfig(): any {
+/**
+ * Minimal page-config structure we actually consume.
+ */
+interface IPageConfigLike {
+  baseUrl?: string;
+  showCode?: boolean;
+  theme?: {
+    sidebar_background_color?: string;
+  };
+}
+
+/**
+ * Read the inline Jupyter page config JSON.
+ * Throws if the element does not exist or contains invalid JSON.
+ */
+function getPageConfig(): IPageConfigLike {
   const el = document.getElementById('jupyter-config-data');
   if (!el) {
     throw new Error('Page config script not found');
   }
-  // Parse its JSON content
-  return JSON.parse(el.textContent || '{}');
+
+  try {
+    return JSON.parse(el.textContent || '{}') as IPageConfigLike;
+  } catch (err) {
+    console.warn('Invalid page config JSON:', err);
+    return {};
+  }
 }
 
-async function fetchTheme(url: string) {
-  console.log('fetch theme', url);
+/**
+ * Fetch theme overrides.
+ * The `url` parameter is accepted for future flexibility.
+ */
+async function fetchTheme(_url: string) {
   try {
     const response = await fetch('http://localhost:8888/mercury/api/theme');
     if (!response.ok) {
@@ -42,363 +77,204 @@ async function fetchTheme(url: string) {
   }
 }
 
+/**
+ * Main application widget that lays out notebook cells into
+ * a sidebar (left), a main area (top-right), and a bottom panel (right).
+ *
+ * Layout sketch:
+ *
+ * +-------------------------------------------------------+
+ * | mercury-main-panel                                    |
+ * |                                                       |
+ * |  +--------+---------------------------------------+   |
+ * |  |        |      mercury-right-split-panel        |   |
+ * |  |  Left  |   +-------------------------------+   |   |
+ * |  | Panel  |   |      Right Top (Main)         |   |   |
+ * |  | (20%)  |   |        (85% height)           |   |   |
+ * |  |        |   +-------------------------------+   |   |
+ * |  |        |   |    Right Bottom (Chat Input)  |   |   |
+ * |  |        |   |         (15% height)          |   |   |
+ * |  +--------+---+-------------------------------+---+   |
+ * +-------------------------------------------------------+
+ */
 export class AppWidget extends Panel {
+  // Layout containers
+  private _split: SplitPanel; // left-right
+  private _left: Panel; // sidebar
+  private _rightSplit: SplitPanel; // top-bottom
+  private _rightTop: Panel; // main
+  private _rightBottom: Panel; // chat/bottom
+
+  // State
   private _showCode = false;
-  private _split: SplitPanel;
-  private _left: Panel;
-  private _rightSplit: SplitPanel;
-  private _rightTop: Panel;
-  private _rightBottom: Panel;
-  // Keep a stable mapping of cellId -> notebook order index
+  private _model: AppModel;
+  private _cellItems: CellItemWidget[] = [];
+
+  // Mapping: cellId -> notebook index to keep stable ordering for inline widgets.
   private _cellOrder = new Map<string, number>();
 
-  // +-------------------------------------------------------+
-  // | mercury-main-panel                                    |
-  // |                                                       |
-  // |  +--------+---------------------------------------+   |
-  // |  |        |      mercury-right-split-panel        |   |
-  // |  |  Left  |   +-------------------------------+   |   |
-  // |  | Panel  |   |      Right Top (Main)         |   |   |
-  // |  | (20%)  |   |        (85% height)           |   |   |
-  // |  |        |   +-------------------------------+   |   |
-  // |  |        |   |    Right Bottom (Chat Input)  |   |   |
-  // |  |        |   |         (15% height)          |   |   |
-  // |  +--------+---+-------------------------------+---+   |
-  // +-------------------------------------------------------+
+  // Visibility bookkeeping to avoid redundant size resets.
+  private _lastLeftVisible = false;
+  private _lastBottomVisible = false;
 
   constructor(model: AppModel) {
     super();
 
     const pageConfig = getPageConfig();
+    void fetchTheme(pageConfig.baseUrl || '');
 
-    fetchTheme(pageConfig.baseUrl);
-
-    this._showCode = pageConfig.showCode ?? false;
+    this._showCode = !!pageConfig.showCode;
+    this._model = model;
 
     this.id = 'mercury-main-panel';
     this.addClass('mercury-main-panel');
-    this._model = model;
 
-    this._model.ready.connect(() => {
-      this._initCellItems();
-    });
+    // Build static layout containers
+    this._left = this.createSidebar(pageConfig);
+    const { rightSplit, rightTop, rightBottom } = this.createRightPanels();
+    this._rightSplit = rightSplit;
+    this._rightTop = rightTop;
+    this._rightBottom = rightBottom;
+    this._split = this.createMainSplit(this._left, this._rightSplit);
 
-    // Create panels
-    this._left = new Panel();
-    this._left.addClass('mercury-left-panel');
-    this._left.node.style.backgroundColor =
-      pageConfig?.theme?.sidebar_background_color ?? '#f8f9fa';
-
-    this._rightTop = new Panel();
-    this._rightTop.addClass('mercury-right-top-panel'); // For main content
-
-    this._rightBottom = new Panel();
-    this._rightBottom.addClass('mercury-right-bottom-panel'); // For chat input
-
-    this._rightSplit = new SplitPanel();
-    this._rightSplit.orientation = 'vertical';
-    this._rightSplit.addClass('mercury-right-split-panel');
-
-    // Order: Top first (main), Bottom second (chat)
-    this._rightSplit.addWidget(this._rightTop);
-    this._rightSplit.addWidget(this._rightBottom);
-    this._rightSplit.addClass('mercury-split-panel'); // add red split border
-
-    // Create the main SplitPanel
-    this._split = new SplitPanel();
-    this._split.orientation = 'horizontal'; // left-right split
-    this._split.addClass('mercury-split-panel');
-
-    // Add the left and right panels to the split panel
-    this._split.addWidget(this._left);
-    this._split.addWidget(this._rightSplit);
-
-    // Style the SplitPanel
-    this._split.node.style.height = '100%';
-    this._split.node.style.width = '100%';
-
-    // Add the split panel to this main panel
+    // Add root container to this widget
     this.addWidget(this._split);
 
-    // Collapse button
-    const collapseBtn = document.createElement('button');
-    collapseBtn.innerHTML = '«';
-    collapseBtn.className = 'mercury-sidebar-toggle mercury-sidebar-collapse';
-    collapseBtn.title = 'Hide sidebar';
-    this._left.node.appendChild(collapseBtn); // Attach to sidebar
+    // Sidebar toggle buttons
+    this.installSidebarToggles();
 
-    // Expand button (starts hidden)
-    const expandBtn = document.createElement('button');
-    expandBtn.innerHTML = '»';
-    expandBtn.className = 'mercury-sidebar-toggle mercury-sidebar-expand';
-    expandBtn.title = 'Show sidebar';
-    expandBtn.style.display = 'none';
-    this.node.appendChild(expandBtn); // Attach to main container
+    // When the model is ready, populate all cell widgets
+    this._model.ready.connect(() => this.initializeCells());
 
-    // Toggle logic
-    collapseBtn.onclick = () => {
-      this._left.hide();
-      this._split.setRelativeSizes([0, 1]);
-      collapseBtn.style.display = 'none';
-      expandBtn.style.display = '';
-    };
-
-    expandBtn.onclick = () => {
-      this._left.show();
-      this._split.setRelativeSizes([0.2, 0.8]);
-      collapseBtn.style.display = '';
-      expandBtn.style.display = 'none';
-    };
-
+    // When a mercury widget is added (from outputs), try to place it
     this._model.mercuryWidgetAdded.connect((_, { cellId, position }) => {
-      console.log('widget added');
-      const cellWidget = this._cellItems.find(w => w.cellId === cellId);
-      if (cellWidget && cellWidget.child instanceof CodeCell) {
-        console.log('placeCell', cellId, position);
-        this.placeCell(cellWidget.child, position);
+      const item = this._cellItems.find(w => w.cellId === cellId);
+      if (item && item.child instanceof CodeCell) {
+        this.placeCell(item.child, position);
       }
     });
   }
 
-  placeCell(cell: CodeCell, posOverride?: string): void {
-    console.log('do place cell');
+  // ────────────────────────────────────────────────────────────────────────────
+  // Lifecycle hooks
+  // ────────────────────────────────────────────────────────────────────────────
+
+  protected onAfterAttach(msg: Message): void {
+    super.onAfterAttach(msg);
+
+    // Keep browser context menu; block JupyterLab/Lumino menu only.
+    this.node.addEventListener(
+      'contextmenu',
+      (event: MouseEvent) => event.stopImmediatePropagation(),
+      true
+    );
+    this._left.node.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Set split sizes after first paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this._split.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
+        this._rightSplit.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+      });
+    });
+  }
+
+  dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
+    Signal.clearData(this);
+    super.dispose();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Public API
+  // ────────────────────────────────────────────────────────────────────────────
+
+  get cellWidgets(): CellItemWidget[] {
+    return this._cellItems;
+  }
+
+  /**
+   * Place a code cell's output area into the appropriate panel
+   * based on its MERCURY_MIMETYPE metadata or an explicit override.
+   * Keeps widgets ordered by notebook order in ALL targets.
+   */
+  placeCell(
+    cell: CodeCell,
+    posOverride?: 'sidebar' | 'bottom' | 'inline' | string
+  ): void {
     const oa = cell.outputArea;
 
-    let sidebar = false;
-    let bottom = false;
-    let pos = posOverride;
-
-    if (!pos) {
+    // Determine target position
+    let position = posOverride;
+    if (!position) {
       for (let i = 0; i < oa.model.length; i++) {
         const output = oa.model.get(i);
-        if (output.data && MERCURY_MIMETYPE in output.data) {
+        const data = output.data as Record<string, unknown> | undefined;
+        if (data && MERCURY_MIMETYPE in data) {
           try {
-            const meta = JSON.parse(output.data[MERCURY_MIMETYPE] as string);
-            pos = meta.position || 'sidebar';
+            const meta = JSON.parse(String(data[MERCURY_MIMETYPE]));
+            position = meta.position || 'sidebar';
           } catch {
-            pos = 'sidebar';
+            position = 'sidebar';
           }
           break;
         }
       }
     }
 
-    sidebar = pos === 'sidebar';
-    bottom = pos === 'bottom';
+    // Map to target panel (default to inline/rightTop)
+    const target: Panel =
+      position === 'sidebar'
+        ? this._left
+        : position === 'bottom'
+          ? this._rightBottom
+          : this._rightTop;
 
-    const target = sidebar
-      ? this._left
-      : bottom
-        ? this._rightBottom
-        : this._rightTop;
-
-    if (oa.parent === target) {
-      return;
-    }
-
-    // Remove from old parent if needed
+    // Detach from old parent (if any) so we can reinsert in order
     if (oa.parent?.layout && 'removeWidget' in oa.parent.layout) {
       (oa.parent.layout as any).removeWidget(oa);
     }
 
-    // Insert with a stable index for inline (rightTop) widgets; append elsewhere
-    const layout: any = target.layout;
-    if (
-      target === this._rightTop &&
-      typeof layout?.insertWidget === 'function'
-    ) {
-      layout.insertWidget(this._indexFor(cell), oa);
+    // Compute stable insertion index from notebook order
+    const order = this._cellOrder.get(cell.model.id);
+    const idx = this.insertionIndexFor(target, order);
+
+    // Insert in order if possible; otherwise append
+    if (typeof (target as any).insertWidget === 'function') {
+      target.insertWidget(idx, oa);
     } else {
       target.addWidget(oa);
     }
 
-    this._updatePanelVisibility();
+    // Update visibility/sizing of panels after placement
+    this.updatePanelVisibility();
   }
 
-  // --- Stable ordering helpers ---------------------------------------------
-  private _rebuildCellOrder() {
+  // ────────────────────────────────────────────────────────────────────────────
+  // Initialization
+  // ────────────────────────────────────────────────────────────────────────────
+
+  private initializeCells(): void {
     const cells = this._model.cells;
-    this._cellOrder.clear();
+
+    this.rebuildCellOrder();
+
     for (let i = 0; i < cells.length; i++) {
-      this._cellOrder.set(cells.get(i).id, i);
-    }
-  }
-  private _indexFor(cell: CodeCell) {
-    const id = cell.model.id;
-    const order = this._cellOrder.get(id);
-
-    // ⬇️ if the cell isn't in the map yet, APPEND instead of inserting at 0
-    if (order === undefined) {
-      return this._rightTop.widgets.length;
-    }
-
-    let idx = 0;
-    for (const w of this._rightTop.widgets) {
-      const widgetCell = this._cellItems.find(
-        ci =>
-          ci.child instanceof CodeCell &&
-          (ci.child as CodeCell).outputArea === w
-      );
-      if (!widgetCell) continue;
-
-      const otherId = widgetCell.child.model.id;
-      const otherOrder = this._cellOrder.get(otherId);
-      if (otherOrder !== undefined && otherOrder < order) {
-        idx++;
-      }
-    }
-    return idx;
-  }
-
-  private _inlineIndexForOrder(order: number, container: Panel): number {
-    let idx = 0;
-    for (const w of container.widgets) {
-      const ci = this._cellItems.find(c =>
-        c.child === w ||
-        (c.child instanceof CodeCell &&
-          (c.child as CodeCell).outputArea === w)
-      );
-      if (!ci) continue;
-      const otherOrder = this._cellOrder.get(ci.child.model.id);
-      if (otherOrder !== undefined && otherOrder < order) idx++;
-    }
-    return idx;
-  }
-
-  // private _indexFor(cell: CodeCell) {
-  //   // Compute index relative to other widgets in rightTop to preserve order
-  //   const id = cell.model.id;
-  //   const order = this._cellOrder.get(id);
-  //   if (order === null) {
-  //     return this._rightTop.widgets.length;
-  //   }
-  //   // Map notebook order to current rightTop child order
-  //   // We pick the insertion index as the count of rightTop widgets whose cell order < this cell’s order
-  //   let idx = 0;
-  //   for (const w of this._rightTop.widgets) {
-  //     // Only count output areas that belong to known cells
-  //     const widgetCell = this._cellItems.find(
-  //       ci =>
-  //         ci.child instanceof CodeCell &&
-  //         (ci.child as CodeCell).outputArea === w
-  //     );
-  //     if (!widgetCell) {
-  //       continue;
-  //     }
-  //     const otherId = widgetCell.child.model.id;
-  //     const otherOrder = this._cellOrder.get(otherId);
-  //     if (
-  //       otherOrder !== undefined &&
-  //       order !== undefined &&
-  //       otherOrder < order
-  //     ) {
-  //       idx++;
-  //     }
-  //   }
-  //   return idx;
-  // }
-
-  /**
-   * Create a new cell widget from a `CellModel`.
-   *
-   * @param cellModel - `ICellModel`.
-   */
-  protected createCell(cellModel: ICellModel): CellItemWidget {
-    let item: Cell;
-    let sidebar = false; // place cell in the sidebar
-    let bottom = false; // place cell in the bottom panel
-
-    switch (cellModel.type) {
-      case 'code': {
-        const codeCell = new CodeCell({
-          model: cellModel as CodeCellModel,
-          rendermime: this._model.rendermime,
-          contentFactory: this._model.contentFactory,
-          editorConfig: this._model.editorConfig.code
-        });
-        codeCell.readOnly = true;
-        for (let i = 0; i < codeCell.outputArea.model.length; i++) {
-          const output = codeCell.outputArea.model.get(i);
-          const data = output.data;
-          // Only widget marked as dashboard controller will have
-          // output of type MERCURY_MIMETYPE. So we don't touch widget
-          // unmarked.
-          if (MERCURY_MIMETYPE in data) {
-            try {
-              const meta = JSON.parse(data[MERCURY_MIMETYPE] as string);
-              const pos = meta.position || 'sidebar';
-              sidebar = pos === 'sidebar';
-              bottom = pos === 'bottom';
-            } catch (err) {
-              sidebar = true;
-              bottom = false;
-            }
-            break;
-          }
-        }
-        item = codeCell;
-        break;
-      }
-      case 'markdown': {
-        const markdownCell = new MarkdownCell({
-          model: cellModel as MarkdownCellModel,
-          rendermime: this._model.rendermime,
-          contentFactory: this._model.contentFactory,
-          editorConfig: this._model.editorConfig.markdown
-        });
-        markdownCell.inputHidden = false;
-        markdownCell.rendered = true;
-        Private.removeElements(markdownCell.node, 'jp-Collapser');
-        Private.removeElements(markdownCell.node, 'jp-InputPrompt');
-        item = markdownCell;
-        break;
-      }
-      default: {
-        const rawCell = new RawCell({
-          model: cellModel as RawCellModel,
-          contentFactory: this._model.contentFactory,
-          editorConfig: this._model.editorConfig.raw
-        });
-        rawCell.inputHidden = false;
-        Private.removeElements(rawCell.node, 'jp-Collapser');
-        Private.removeElements(rawCell.node, 'jp-InputPrompt');
-        item = rawCell;
-        break;
-      }
-    }
-    const options = {
-      cellId: cellModel.id,
-      cellWidget: item,
-      sidebar,
-      bottom
-    };
-    const widget = new CellItemWidget(item, options);
-    return widget;
-  }
-
-  private _initCellItems(): void {
-    console.log('init cells');
-    const cells = this._model.cells;
-    // rebuild cell order
-    this._rebuildCellOrder();
-    for (let i = 0; i < cells?.length; i++) {
       const model = cells.get(i);
       const item = this.createCell(model);
       this._cellItems.push(item);
 
-      // If the cell is a code cell, use the output area
       if (item.child instanceof CodeCell) {
-        const oa = item.child.outputArea;
+        const code = item.child;
+        const oa = code.outputArea;
 
         if (this._showCode) {
-          // item.child.outputArea.hide();
-          this._rightTop.addWidget(item.child);
-          const outputEl = item.child.node.querySelector(
-            '.jp-Cell-outputWrapper'
-          ) as HTMLElement;
-          if (outputEl) {
-            outputEl.style.display = 'none';
-          }
+          // Show cell input; hide its outputs in the code view
+          this._rightTop.addWidget(code);
+          const outputEl = code.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
+          if (outputEl) outputEl.style.display = 'none';
         }
 
         if (item.sidebar) {
@@ -408,438 +284,296 @@ export class AppWidget extends Panel {
         } else {
           this._rightTop.addWidget(oa);
         }
-
-        // this.placeCell(item.child as CodeCell);
       } else {
-        // All non-code cells always go to _rightTop
+        // Non-code cells go inline in the main area
         this._rightTop.addWidget(item.child);
       }
     }
 
-    this._model.widgetUpdated.connect(this._onWidgetUpdate, this);
+    // React to per-widget updates (may trigger downstream re-execution)
+    this._model.widgetUpdated.connect(this.onWidgetUpdate, this);
 
-    this._updatePanelVisibility();
+    // React to structural changes in the cell list
+    this._model.cells.changed.connect((_, args) => this.onCellsChanged(args));
 
-    // this._model.cells.changed.connect((_, args) => {
-    //   console.log('cells changed');
-    //   this._rebuildCellOrder();
-    //   if (args.type === 'add') {
-    //     console.log('add');
-    //   }
-    // });
-    this._model.cells.changed.connect((_, args) => {
-      console.log('cells changed', args);
+    this.updatePanelVisibility();
+    void this.checkWidgetModels();
+  }
 
-      switch (args.type) {
-        case 'add': {
-          this._rebuildCellOrder();
-          // args.newIndex, args.newValues: ICellModel[]
-          let insertAt = args.newIndex;
-          for (const m of args.newValues as ICellModel[]) {
-            const item = this.createCell(m);
-            this._cellItems.splice(insertAt, 0, item);
-            this._insertItem(item, insertAt);
-            insertAt++;
-          }
-          this._rebuildCellOrder();
-          this._updatePanelVisibility();
-          void this._checkWidgetModels();
-          break;
-        }
+  /**
+   * Create a CellItemWidget for a given ICellModel.
+   */
+  private createCell(cellModel: ICellModel): CellItemWidget {
+    let widget: Cell;
+    let sidebar = false;
+    let bottom = false;
 
-        case 'remove': {
-          // args.oldIndex, args.oldValues: ICellModel[]
-          for (let i = 0; i < (args.oldValues as ICellModel[]).length; i++) {
-            const removedItem = this._cellItems.splice(args.oldIndex, 1)[0];
-            if (removedItem) this._disposeItem(removedItem);
-          }
-          this._rebuildCellOrder();
-          this._updatePanelVisibility();
-          break;
-        }
+    switch (cellModel.type) {
+      case 'code': {
+        const cell = new CodeCell({
+          model: cellModel as CodeCellModel,
+          rendermime: this._model.rendermime,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.code
+        });
+        cell.readOnly = true;
 
-        case 'move': {
-          // args.oldIndex -> args.newIndex
-          const [moved] = this._cellItems.splice(args.oldIndex, 1);
-          this._cellItems.splice(args.newIndex, 0, moved);
-          this._rebuildCellOrder();
-
-          if (moved.child instanceof CodeCell) {
-            const cell = moved.child as CodeCell;
-            const oa = cell.outputArea;
-            // Only inline (rightTop) needs strict ordering
-            const parent = oa.parent;
-            if (parent === this._rightTop) {
-              (parent.layout as any).removeWidget(oa);
-              const idx = this._indexFor(cell);
-              (this._rightTop.layout as any).insertWidget(idx, oa);
+        // Look for MERCURY metadata to decide placement
+        for (let i = 0; i < cell.outputArea.model.length; i++) {
+          const output = cell.outputArea.model.get(i);
+          const data = output.data as Record<string, unknown> | undefined;
+          if (data && MERCURY_MIMETYPE in data) {
+            try {
+              const meta = JSON.parse(String(data[MERCURY_MIMETYPE]));
+              const pos = meta.position || 'sidebar';
+              sidebar = pos === 'sidebar';
+              bottom = pos === 'bottom';
+            } catch {
+              sidebar = true;
+              bottom = false;
             }
-          } else {
-            const w = moved.child;
-            if (w.parent === this._rightTop) {
-              (this._rightTop.layout as any).removeWidget(w);
-              const idx = Math.min(args.newIndex, this._rightTop.widgets.length);
-              (this._rightTop.layout as any).insertWidget(idx, w);
-            }
+            break;
           }
-          this._updatePanelVisibility();
-          break;
         }
-
-        case 'set': {
-          // E.g. metadata/output changed; placement could change (sidebar/bottom/inline)
-          // Recompute position for that specific cell
-          //const m = this._model.cells.get(args.newIndex);
-          const item = this._cellItems[args.newIndex];
-          if (item?.child instanceof CodeCell) {
-            // Will read MERCURY_MIMETYPE and move outputArea accordingly
-            this.placeCell(item.child as CodeCell);
-          }
-          this._updatePanelVisibility();
-          break;
-        }
-
-        default: {
-          // Fallback: keep things sane
-          this._rebuildCellOrder();
-          this._updatePanelVisibility();
-        }
+        widget = cell;
+        break;
       }
+
+      case 'markdown': {
+        const cell = new MarkdownCell({
+          model: cellModel as MarkdownCellModel,
+          rendermime: this._model.rendermime,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.markdown
+        });
+        cell.inputHidden = false;
+        cell.rendered = true;
+        removeElements(cell.node, 'jp-Collapser');
+        removeElements(cell.node, 'jp-InputPrompt');
+        widget = cell;
+        break;
+      }
+
+      default: {
+        const cell = new RawCell({
+          model: cellModel as RawCellModel,
+          contentFactory: this._model.contentFactory,
+          editorConfig: this._model.editorConfig.raw
+        });
+        cell.inputHidden = false;
+        removeElements(cell.node, 'jp-Collapser');
+        removeElements(cell.node, 'jp-InputPrompt');
+        widget = cell;
+        break;
+      }
+    }
+
+    return new CellItemWidget(widget, {
+      cellId: cellModel.id,
+      cellWidget: widget,
+      sidebar,
+      bottom
     });
-
-    this._checkWidgetModels();
   }
 
-  private _insertItem(item: CellItemWidget, modelIndex: number): void {
-    const order = this._cellOrder.get(item.child.model.id);
+  // ────────────────────────────────────────────────────────────────────────────
+  // Cell list / ordering utilities
+  // ────────────────────────────────────────────────────────────────────────────
 
-    if (item.child instanceof CodeCell) {
-      const cell = item.child as CodeCell;
-      const oa = cell.outputArea;
-
-      if (this._showCode) {
-        this._rightTop.addWidget(cell);
-        const outputEl = cell.node.querySelector('.jp-Cell-outputWrapper') as HTMLElement | null;
-        if (outputEl) outputEl.style.display = 'none';
-      }
-
-      const target = item.sidebar ? this._left : item.bottom ? this._rightBottom : this._rightTop;
-
-      if (target === this._rightTop) {
-        const idx = this._indexFor(cell);
-        (this._rightTop.layout as any).insertWidget(idx, oa);
-      } else {
-        // ordered insert for sidebar/bottom as well
-        const idx = order === undefined ? target.widgets.length : this._inlineIndexForOrder(order, target);
-        (target.layout as any).insertWidget(idx, oa);
-      }
-    } else {
-      // markdown/raw -> rightTop, ordered
-      const idx = order === undefined ? this._rightTop.widgets.length : this._inlineIndexForOrder(order, this._rightTop);
-      (this._rightTop.layout as any).insertWidget(idx, item.child);
-    }
+  private rebuildCellOrder(): void {
+    const cells = this._model.cells;
+    this._cellOrder.clear();
+    for (let i = 0; i < cells.length; i++) this._cellOrder.set(cells.get(i).id, i);
   }
 
-  private _disposeItem(item: CellItemWidget): void {
-    if (item.child instanceof CodeCell) {
-      item.child.outputArea.dispose();
-      item.child.dispose();
-    } else {
-      item.child.dispose();
-    }
-  }
-
-  private async _checkWidgetModels(): Promise<void> {
-    console.log('check widgets models !');
-    const manager = await this.getWidgetManager(this._model.rendermime);;
-    console.log(manager);
-    if (!manager) {
-      console.warn('No widget manager – cannot check widget models');
-      return;
+  /**
+   * Find insertion index inside `container` so that widgets maintain notebook order.
+   * It works for:
+   *  - markdown/raw cell widgets (ci.child === w)
+   *  - code *output areas* (ci.child instanceof CodeCell && ci.child.outputArea === w)
+   *  - (optionally) code input widgets when showCode=true (ci.child === w)
+   */
+  private insertionIndexFor(
+    container: Panel,
+    targetOrder: number | undefined
+  ): number {
+    if (targetOrder === undefined) {
+      // Unknown order => append
+      return container.widgets.length;
     }
 
-    let totalWithId = 0;
-    let foundCount = 0;
-
-    for (const item of this._cellItems) {
-      if (!(item.child instanceof CodeCell)) {
+    let idx = 0;
+    for (const w of container.widgets) {
+      const ci = this._cellItems.find(
+        c =>
+          c.child === w ||
+          (c.child instanceof CodeCell &&
+            (c.child as CodeCell).outputArea === w)
+      );
+      if (!ci) {
         continue;
       }
-      const ids = this.getWidgetModelIdsFromCell(item.child);
-      if (ids.length > 0) {
-        totalWithId += ids.length;
-        for (const id of ids) {
-          const model = await this.resolveIpyModel(manager, id);
-          console.log(model, id);
 
-          if (model) {
-            const isConnected = !!(model as any).comm_live; // boolean
-            console.log({ isConnected });
-            if (isConnected) {
-              foundCount++;
-            }
+      const otherOrder = this._cellOrder.get(ci.child.model.id);
+      if (otherOrder !== undefined && otherOrder < targetOrder) {
+        idx++;
+      }
+    }
+    return idx;
+  }
+
+  // private indexFor(cell: CodeCell): number {
+  //   const id = cell.model.id;
+  //   const order = this._cellOrder.get(id);
+
+  //   if (order === undefined) return this._rightTop.widgets.length; // append
+
+  //   let idx = 0;
+  //   for (const w of this._rightTop.widgets) {
+  //     const widgetCell = this._cellItems.find(
+  //       ci => ci.child instanceof CodeCell && (ci.child as CodeCell).outputArea === w
+  //     );
+  //     if (!widgetCell) continue;
+
+  //     const otherId = widgetCell.child.model.id;
+  //     const otherOrder = this._cellOrder.get(otherId);
+  //     if (otherOrder !== undefined && otherOrder < order) idx++;
+  //   }
+  //   return idx;
+  // }
+
+  // private inlineIndexForOrder(order: number, container: Panel): number {
+  //   let idx = 0;
+  //   for (const w of container.widgets) {
+  //     const ci = this._cellItems.find(
+  //       c =>
+  //         c.child === w ||
+  //         (c.child instanceof CodeCell && (c.child as CodeCell).outputArea === w)
+  //     );
+  //     if (!ci) {
+  //       continue;
+  //     }
+  //     const otherOrder = this._cellOrder.get(ci.child.model.id);
+  //     if (otherOrder !== undefined && otherOrder < order) {
+  //       idx++;
+  //     }
+  //   }
+  //   return idx;
+  // }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Model reactions
+  // ────────────────────────────────────────────────────────────────────────────
+
+  private onCellsChanged(args: any): void {
+    switch (args.type) {
+      case 'add': {
+        this.rebuildCellOrder();
+        let insertAt = args.newIndex;
+        for (const m of args.newValues as ICellModel[]) {
+          const item = this.createCell(m);
+          this._cellItems.splice(insertAt, 0, item);
+          this.insertItem(item, insertAt);
+          insertAt++;
+        }
+        this.rebuildCellOrder();
+        this.updatePanelVisibility();
+        void this.checkWidgetModels();
+        break;
+      }
+
+      case 'remove': {
+        for (let i = 0; i < (args.oldValues as ICellModel[]).length; i++) {
+          const removed = this._cellItems.splice(args.oldIndex, 1)[0];
+          if (removed) {
+            this.disposeItem(removed);
           }
         }
+        this.rebuildCellOrder();
+        this.updatePanelVisibility();
+        break;
       }
-    }
 
-    console.log(
-      `[ipywidgets] cells with widget ids: ${totalWithId}, models found in manager: ${foundCount}`
-    );
-    if (totalWithId > 0 && foundCount === 0) {
-      console.log('re-execute all');
-      const cells = this._model.cells;
-      const cellCount = cells.length;
-      // Execute all code cells below the updated cell
-      for (let i = 0; i < cellCount; i++) {
-        const cellModel = cells.get(i);
-        if (cellModel.type === 'code') {
-          const cellWidget = this._cellItems.find(
-            w => w.cellId === cellModel.id
-          );
-          if (cellWidget && cellWidget.child instanceof CodeCell) {
-            codeCellExecute(
-              cellWidget.child as CodeCell,
-              this._model.context.sessionContext,
-              {
-                deletedCells: this._model.context.model?.deletedCells ?? []
-              }
-            );
+      case 'move': {
+        const [moved] = this._cellItems.splice(args.oldIndex, 1);
+        this._cellItems.splice(args.newIndex, 0, moved);
+        this.rebuildCellOrder();
+
+        if (moved.child instanceof CodeCell) {
+          const cell = moved.child as CodeCell;
+          const oa = cell.outputArea;
+          if (oa.parent) {
+            Widget.detach(oa);
           }
-        }
-      }
-    }
-  }
 
-  // 1) Safe resolver: never throws, always resolves to model or undefined
-  private async resolveIpyModel(
-    manager: any,
-    id: string
-  ): Promise<any | undefined> {
-    if (!manager) {
-      return undefined;
-    }
+          const target = moved.sidebar
+            ? this._left
+            : moved.bottom
+              ? this._rightBottom
+              : this._rightTop;
 
-    // Preferred (newer API) – synchronous, returns model | undefined
-    if (typeof manager.getModel === 'function') {
-      try {
-        return manager.getModel(id);
-      } catch {
-        return undefined;
-      }
-    }
-
-    // Older API – may throw or return a rejecting Promise
-    if (typeof manager.get_model === 'function') {
-      try {
-        const res = manager.get_model(id);
-        // Some impls return a Promise, some return the model
-        if (res && typeof res.then === 'function') {
-          try {
-            return await res; // catch rejection -> undefined
-          } catch {
-            return undefined;
+          const order = this._cellOrder.get(cell.model.id);
+          const idx = this.insertionIndexFor(target, order);
+          // const idx = target === this._rightTop
+          //   ? this.indexFor(cell)
+          //   : this.inlineIndexForOrder(
+          //     this._cellOrder.get(cell.model.id)!,
+          //     target
+          //   );
+          target.insertWidget(idx, oa);
+        } else {
+          const w = moved.child;
+          if (w.parent) {
+            Widget.detach(w);
           }
+          // const idx = this.inlineIndexForOrder(
+          //   this._cellOrder.get(w.model.id)!,
+          //   this._rightTop
+          // );
+          const order = this._cellOrder.get(w.model.id);
+          const idx = this.insertionIndexFor(this._rightTop, order);
+          this._rightTop.insertWidget(idx, w);
         }
-        return res;
-      } catch {
-        return undefined;
-      }
-    }
 
-    // Private map fallback – values often are Promise<WidgetModel>
-    const map = (manager as any)?._models;
-    if (map && typeof map.get === 'function') {
-      try {
-        const res = map.get(id);
-        if (res && typeof res.then === 'function') {
-          try {
-            return await res;
-          } catch {
-            return undefined;
-          }
+        this.updatePanelVisibility();
+        break;
+      }
+
+      case 'set': {
+        const item = this._cellItems[args.newIndex];
+        if (item?.child instanceof CodeCell) {
+          this.placeCell(item.child as CodeCell);
         }
-        return res;
-      } catch {
-        return undefined;
+        this.updatePanelVisibility();
+        break;
+      }
+
+      default: {
+        this.rebuildCellOrder();
+        this.updatePanelVisibility();
       }
     }
-
-    return undefined;
   }
 
-  /** Get the live WidgetManager instance from a rendermime registry. */
-  /** Best-effort: extract the ipywidgets manager from the rendermime. */
-  private async getWidgetManager(
-    rendermime: IRenderMimeRegistry
-  ): Promise<any | null> {
-    const factory: any = rendermime.getFactory(WIDGET_MIMETYPE);
-    if (!factory) return null;
-
-    // small helper
-    const unwrap = async (x: any) =>
-      x?.promise ? await x.promise : (typeof x?.then === 'function' ? await x : x);
-
-    // 1) Newer builds
-    if (factory.widgetManager) return await unwrap(factory.widgetManager);
-
-    // 2) Some builds stash it on rendermime
-    const rmAny: any = rendermime as any;
-    if (rmAny.widgets?.manager) return await unwrap(rmAny.widgets.manager);
-
-    // 3) Create a renderer and read its manager
-    if (typeof factory.createRenderer === 'function') {
-      const r: any = factory.createRenderer({ mimeType: WIDGET_MIMETYPE });
-      const cand = r?.manager ?? r?._manager ?? r?.widgets?.manager ?? factory?._manager;
-      return await unwrap(cand);
-    }
-
-    // 4) Last resort: private field
-    return await unwrap((factory as any)._manager ?? null);
-  }
-
-
-  /** Collect widget model_ids from a CodeCell’s OutputArea model. */
-  private getWidgetModelIdsFromCell(cell: CodeCell): string[] {
-    const ids: string[] = [];
-    const oaModel = cell.outputArea.model;
-    for (let i = 0; i < oaModel.length; i++) {
-      const output = oaModel.get(i);
-      const data: any = output.data;
-      if (data && WIDGET_MIMETYPE in data) {
-        const payload = data[WIDGET_MIMETYPE];
-        const modelId =
-          typeof payload === 'string'
-            ? (() => {
-              try {
-                return JSON.parse(payload).model_id;
-              } catch {
-                return undefined;
-              }
-            })()
-            : payload?.model_id;
-        if (modelId) {
-          ids.push(modelId);
-        }
-      }
-    }
-    return ids;
-  }
-
-
-  private _lastLeftVisible = false;
-  private _lastBottomVisible = false;
-  private _updatePanelVisibility() {
-    // Hide/show left panel
-    const leftVisible = this._left.widgets.length > 0;
-    if (!leftVisible) {
-      this._left.hide();
-
-      if (this._lastLeftVisible !== leftVisible) {
-        this._split.setRelativeSizes([0, 1]);
-      }
-    } else {
-      this._left.show();
-
-      if (this._lastLeftVisible !== leftVisible) {
-        this._split.setRelativeSizes([0.2, 0.8]);
-      }
-    }
-    this._lastLeftVisible = leftVisible;
-
-    // Hide/show right bottom panel
-
-    const bottomVisible = this._rightBottom.widgets.length > 0;
-    if (!bottomVisible) {
-      this._rightBottom.hide();
-
-      if (this._lastBottomVisible !== bottomVisible) {
-        this._rightSplit.setRelativeSizes([1, 0]);
-      }
-    } else {
-      this._rightBottom.show();
-
-      if (this._lastBottomVisible !== bottomVisible) {
-        this._rightSplit.setRelativeSizes([0.85, 0.15]);
-      }
-    }
-    this._lastBottomVisible = bottomVisible;
-  }
-
-  /**
-   * Dispose of the resources held by the widget.
-   */
-  dispose(): void {
-    if (this.isDisposed) {
-      return;
-    }
-    Signal.clearData(this);
-    super.dispose();
-  }
-
-  /**
-   * Handle `after-attach` messages sent to the widget.
-   *
-   * ### Note
-   * Add event listeners for the drag and drop event.
-   */
-  protected onAfterAttach(msg: Message): void {
-    super.onAfterAttach(msg);
-    // Block only JupyterLab/Lumino menu, keep browser menu
-    this.node.addEventListener(
-      'contextmenu',
-      (event: MouseEvent) => {
-        event.stopImmediatePropagation(); // kill JupyterLab menu
-      },
-      true
-    );
-    this._left.node.addEventListener('contextmenu', e => e.preventDefault());
-    // Now the panel is attached, set split sizes
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        this._split.setRelativeSizes([0.2, 0.8]);
-        this._rightSplit.setRelativeSizes([0.85, 0.15]);
-      });
-    });
-  }
-
-  /**
-   * Handle `before-detach` messages sent to the widget.
-   *
-   * ### Note
-   * Remove event listeners for the drag and drop event.
-   */
-  protected onBeforeDetach(msg: Message): void {
-    super.onBeforeDetach(msg);
-  }
-
-  get cellWidgets(): CellItemWidget[] {
-    return this._cellItems;
-  }
-
-  private _onWidgetUpdate(model: AppModel, update: IWidgetUpdate): void {
-    console.log('onWidget update');
+  private onWidgetUpdate = (_model: AppModel, update: IWidgetUpdate) => {
     if (!update.cellModelId) {
-      // console.warn('A widget not linked to a specific cell has updated.');
       return;
     }
 
     const cells = this._model.cells;
-    const cellCount = cells.length;
     let updatedIndex = -1;
-
-    for (let i = 0; i < cellCount; i++) {
+    for (let i = 0; i < cells.length; i++) {
       if (cells.get(i).id === update.cellModelId) {
         updatedIndex = i;
         break;
       }
     }
     if (updatedIndex === -1) {
-      // console.warn('Updated cellModelId not found in cell list');
       return;
     }
-    // Execute all code cells below the updated cell
-    for (let i = updatedIndex + 1; i < cellCount; i++) {
+
+    // Execute all code cells _below_ the updated cell
+    for (let i = updatedIndex + 1; i < cells.length; i++) {
       const cellModel = cells.get(i);
       if (cellModel.type === 'code') {
         const cellWidget = this._cellItems.find(w => w.cellId === cellModel.id);
@@ -854,34 +588,209 @@ export class AppWidget extends Panel {
         }
       }
     }
-  }
+  };
 
-  private _model: AppModel;
-  private _cellItems: CellItemWidget[] = [];
-}
+  // ────────────────────────────────────────────────────────────────────────────
+  // Insert / dispose helpers
+  // ────────────────────────────────────────────────────────────────────────────
 
-/**
- * A namespace for private module data.
- */
-namespace Private {
-  /**
-   * Remove children by className from an HTMLElement.
-   */
-  export function removeElements(node: HTMLElement, className: string): void {
-    const elements = node.getElementsByClassName(className);
-    for (let i = 0; i < elements.length; i++) {
-      elements[i].remove();
+  private insertItem(item: CellItemWidget, _modelIndex: number): void {
+    const order = this._cellOrder.get(item.child.model.id);
+
+    if (item.child instanceof CodeCell) {
+      const cell = item.child as CodeCell;
+      const oa = cell.outputArea;
+
+      if (this._showCode) {
+        this._rightTop.addWidget(cell);
+        const outputEl = cell.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
+        if (outputEl) outputEl.style.display = 'none';
+      }
+
+      const target = item.sidebar
+        ? this._left
+        : item.bottom
+          ? this._rightBottom
+          : this._rightTop;
+
+      const idx = this.insertionIndexFor(target, order);
+      target.insertWidget(idx, oa);
+    } else {
+      // markdown / raw -> zawsze do rightTop, zgodnie z kolejnością notatnika
+      const idx = this.insertionIndexFor(this._rightTop, order);
+      this._rightTop.insertWidget(idx, item.child);
     }
   }
 
-  export function removePromptsOnChange(node: HTMLElement) {
-    const remove = () => {
-      Private.removeElements(node, 'jp-OutputPrompt');
-      Private.removeElements(node, 'jp-OutputArea-promptOverlay');
+  private disposeItem(item: CellItemWidget): void {
+    if (item.child instanceof CodeCell) {
+      item.child.outputArea.dispose();
+      item.child.dispose();
+    } else {
+      item.child.dispose();
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ipywidgets utilities
+  // ────────────────────────────────────────────────────────────────────────────
+
+  private reexecuteAllCodeCells(): void {
+    const cells = this._model.cells;
+    for (let i = 0; i < cells.length; i++) {
+      const m = cells.get(i);
+      if (m.type !== 'code') {
+        continue;
+      }
+
+      const item = this._cellItems.find(w => w.cellId === m.id);
+      if (item && item.child instanceof CodeCell) {
+        codeCellExecute(
+          item.child as CodeCell,
+          this._model.context.sessionContext,
+          {
+            deletedCells: this._model.context.model?.deletedCells ?? []
+          });
+      }
+    }
+  }
+
+  private async checkWidgetModels(): Promise<void> {
+    const manager = await getWidgetManager(this._model.rendermime);
+    if (!manager) {
+      console.warn('No widget manager - cannot check widget models');
+      return;
+    }
+
+    let totalWithId = 0;
+    let foundCount = 0;
+
+    for (const item of this._cellItems) {
+      if (!(item.child instanceof CodeCell)) {
+        continue;
+      }
+
+      const ids = getWidgetModelIdsFromCell(item.child);
+      if (ids.length === 0) {
+        continue;
+      }
+
+      totalWithId += ids.length;
+      for (const id of ids) {
+        const model = await resolveIpyModel(manager, id);
+        if (model && !!(model as any).comm_live) {
+          foundCount++;
+        }
+      }
+    }
+
+    if (totalWithId > 0 && foundCount === 0) {
+      this.reexecuteAllCodeCells();
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Layout helpers
+  // ────────────────────────────────────────────────────────────────────────────
+
+  private createSidebar(pageConfig: IPageConfigLike): Panel {
+    const left = new Panel();
+    left.addClass('mercury-left-panel');
+    left.node.style.backgroundColor = pageConfig?.theme?.sidebar_background_color ?? DEFAULT_SIDEBAR_BG;
+    return left;
+  }
+
+  private createRightPanels() {
+    const rightTop = new Panel();
+    rightTop.addClass('mercury-right-top-panel');
+
+    const rightBottom = new Panel();
+    rightBottom.addClass('mercury-right-bottom-panel');
+
+    const rightSplit = new SplitPanel();
+    rightSplit.orientation = 'vertical';
+    rightSplit.addClass('mercury-right-split-panel');
+    rightSplit.addWidget(rightTop);
+    rightSplit.addWidget(rightBottom);
+
+    return { rightSplit, rightTop, rightBottom } as const;
+  }
+
+  private createMainSplit(left: Panel, right: SplitPanel): SplitPanel {
+    const split = new SplitPanel();
+    split.orientation = 'horizontal';
+    split.addClass('mercury-split-panel');
+    split.addWidget(left);
+    split.addWidget(right);
+    split.node.style.height = '100%';
+    split.node.style.width = '100%';
+    return split;
+  }
+
+  private installSidebarToggles(): void {
+    const collapseBtn = document.createElement('button');
+    collapseBtn.innerHTML = '«';
+    collapseBtn.className = 'mercury-sidebar-toggle mercury-sidebar-collapse';
+    collapseBtn.title = 'Hide sidebar';
+    this._left.node.appendChild(collapseBtn);
+
+    const expandBtn = document.createElement('button');
+    expandBtn.innerHTML = '»';
+    expandBtn.className = 'mercury-sidebar-toggle mercury-sidebar-expand';
+    expandBtn.title = 'Show sidebar';
+    expandBtn.style.display = 'none';
+    this.node.appendChild(expandBtn);
+
+    collapseBtn.onclick = () => {
+      this._left.hide();
+      this._split.setRelativeSizes([0, 1]);
+      collapseBtn.style.display = 'none';
+      expandBtn.style.display = '';
     };
-    remove();
-    const observer = new MutationObserver(remove);
-    observer.observe(node, { childList: true, subtree: true });
-    return observer;
+
+    expandBtn.onclick = () => {
+      this._left.show();
+      this._split.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
+      collapseBtn.style.display = '';
+      expandBtn.style.display = 'none';
+    };
+  }
+
+  private updatePanelVisibility(): void {
+    // Left panel visibility
+    const leftVisible = Array.from(this._left.widgets).some(
+      w => (w as any).model?.length > 0
+    );
+    // const leftVisible = this._left.widgets.length > 0;
+    if (!leftVisible) {
+      this._left.hide();
+      if (this._lastLeftVisible !== leftVisible) {
+        this._split.setRelativeSizes([0, 1]);
+      }
+    } else {
+      this._left.show();
+      if (this._lastLeftVisible !== leftVisible) {
+        this._split.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
+      }
+    }
+    this._lastLeftVisible = leftVisible;
+
+    // Bottom panel visibility
+    const bottomVisible = Array.from(this._rightBottom.widgets).some(
+      w => (w as any).model?.length > 0
+    );
+    // const bottomVisible = this._rightBottom.widgets.length > 0;
+    if (!bottomVisible) {
+      this._rightBottom.hide();
+      if (this._lastBottomVisible !== bottomVisible) {
+        this._rightSplit.setRelativeSizes([1, 0]);
+      }
+    } else {
+      this._rightBottom.show();
+      if (this._lastBottomVisible !== bottomVisible) {
+        this._rightSplit.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+      }
+    }
+    this._lastBottomVisible = bottomVisible;
   }
 }
