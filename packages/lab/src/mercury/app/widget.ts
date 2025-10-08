@@ -183,10 +183,33 @@ export class AppWidget extends Panel {
     if (this.isDisposed) {
       return;
     }
+
+    try {
+      this._model?.ready?.disconnect(this.initializeCells, this);
+      this._model?.widgetUpdated?.disconnect(this.onWidgetUpdate, this);
+      this._model?.mercuryWidgetAdded?.disconnect(undefined as any, this);
+      this._model?.cells?.changed?.disconnect(undefined as any, this);
+    } catch {
+      /* empty */
+    }
+
+    for (const item of this._cellItems) {
+      try {
+        item.child?.model?.stateChanged?.disconnect(undefined as any, this);
+      } catch {
+        /* empty */
+      }
+    }
+    this._cellItems = [];
+    this._left = null as any;
+    this._rightTop = null as any;
+    this._rightBottom = null as any;
+    this._rightSplit = null as any;
+    this._split = null as any;
+
     Signal.clearData(this);
     super.dispose();
   }
-
   // ────────────────────────────────────────────────────────────────────────────
   // Public API
   // ────────────────────────────────────────────────────────────────────────────
@@ -204,6 +227,10 @@ export class AppWidget extends Panel {
     cell: CodeCell,
     posOverride?: 'sidebar' | 'bottom' | 'inline' | string
   ): void {
+    if (this.isDisposed) {
+      return;
+    }
+
     const oa = cell.outputArea;
 
     // Determine target position
@@ -390,9 +417,15 @@ export class AppWidget extends Panel {
   private rebuildCellOrder(): void {
     const cells = this._model.cells;
     this._cellOrder.clear();
-    for (let i = 0; i < cells.length; i++) this._cellOrder.set(cells.get(i).id, i);
+    for (let i = 0; i < cells.length; i++) {
+      this._cellOrder.set(cells.get(i).id, i);
+    }
   }
 
+  private panelWidgets(panel: Panel | null | undefined): ReadonlyArray<Widget> {
+    // po dispose panel.layout === null → zwróć pustą listę
+    return ((panel as any)?.layout?.widgets ?? []) as ReadonlyArray<Widget>;
+  }
   /**
    * Find insertion index inside `container` so that widgets maintain notebook order.
    * It works for:
@@ -400,17 +433,13 @@ export class AppWidget extends Panel {
    *  - code *output areas* (ci.child instanceof CodeCell && ci.child.outputArea === w)
    *  - (optionally) code input widgets when showCode=true (ci.child === w)
    */
-  private insertionIndexFor(
-    container: Panel,
-    targetOrder: number | undefined
-  ): number {
+  private insertionIndexFor(container: Panel, targetOrder?: number): number {
     if (targetOrder === undefined) {
-      // Unknown order => append
-      return container.widgets.length;
+      return this.panelWidgets(container).length;
     }
 
     let idx = 0;
-    for (const w of container.widgets) {
+    for (const w of this.panelWidgets(container)) {
       const ci = this._cellItems.find(
         c =>
           c.child === w ||
@@ -473,6 +502,9 @@ export class AppWidget extends Panel {
   // ────────────────────────────────────────────────────────────────────────────
 
   private onCellsChanged(args: any): void {
+    if (this.isDisposed) {
+      return;
+    }
     switch (args.type) {
       case 'add': {
         this.rebuildCellOrder();
@@ -563,6 +595,9 @@ export class AppWidget extends Panel {
   }
 
   private onWidgetUpdate = (_model: AppModel, update: IWidgetUpdate) => {
+    if (this.isDisposed) {
+      return;
+    }
     if (!update.cellModelId) {
       return;
     }
@@ -602,6 +637,9 @@ export class AppWidget extends Panel {
   // ────────────────────────────────────────────────────────────────────────────
 
   private insertItem(item: CellItemWidget, _modelIndex: number): void {
+    if (this.isDisposed) {
+      return;
+    }
     const order = this._cellOrder.get(item.child.model.id);
 
     if (item.child instanceof CodeCell) {
@@ -664,6 +702,9 @@ export class AppWidget extends Panel {
   }
 
   private async checkWidgetModels(): Promise<void> {
+    if (this.isDisposed) {
+      return;
+    }
     const manager = await getWidgetManager(this._model.rendermime);
     if (!manager) {
       console.warn('No widget manager - cannot check widget models');
@@ -672,10 +713,19 @@ export class AppWidget extends Panel {
 
     let totalWithId = 0;
     let foundCount = 0;
+    let hasCodeCells = false;
+    let allOutputsEmpty = true;
 
     for (const item of this._cellItems) {
       if (!(item.child instanceof CodeCell)) {
         continue;
+      }
+
+      hasCodeCells = true;
+
+      // check if outputs exist
+      if (item.child.model.outputs.length > 0) {
+        allOutputsEmpty = false;
       }
 
       const ids = getWidgetModelIdsFromCell(item.child);
@@ -692,7 +742,13 @@ export class AppWidget extends Panel {
       }
     }
 
-    if (totalWithId > 0 && foundCount === 0) {
+    // condition 1: we had widget ids but none were alive
+    const noLiveModels = totalWithId > 0 && foundCount === 0;
+
+    // condition 2: there are code cells but all outputs are empty
+    const emptyOutputs = hasCodeCells && allOutputsEmpty;
+
+    if (noLiveModels || emptyOutputs) {
       this.reexecuteAllCodeCells();
     }
   }
@@ -765,40 +821,40 @@ export class AppWidget extends Panel {
   }
 
   private updatePanelVisibility(): void {
-    // Left panel visibility
-    const leftVisible = Array.from(this._left.widgets).some(
+    if (this.isDisposed) {
+      return;
+    }
+    const leftHasContent = this.panelWidgets(this._left).some(
       w => (w as any).model?.length > 0
     );
-    // const leftVisible = this._left.widgets.length > 0;
-    if (!leftVisible) {
-      this._left.hide();
-      if (this._lastLeftVisible !== leftVisible) {
-        this._split.setRelativeSizes([0, 1]);
-      }
-    } else {
-      this._left.show();
-      if (this._lastLeftVisible !== leftVisible) {
-        this._split.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
-      }
-    }
-    this._lastLeftVisible = leftVisible;
+    const bottomHasContent = this.panelWidgets(this._rightBottom).some(
+      w => (w as any).model?.length > 0
+    );
 
-    // Bottom panel visibility
-    const bottomVisible = Array.from(this._rightBottom.widgets).some(
-      w => (w as any).model?.length > 0
-    );
-    // const bottomVisible = this._rightBottom.widgets.length > 0;
-    if (!bottomVisible) {
-      this._rightBottom.hide();
-      if (this._lastBottomVisible !== bottomVisible) {
-        this._rightSplit.setRelativeSizes([1, 0]);
+    if (!leftHasContent) {
+      this._left?.hide();
+      if (this._lastLeftVisible !== false) {
+        this._split?.setRelativeSizes([0, 1]);
       }
     } else {
-      this._rightBottom.show();
-      if (this._lastBottomVisible !== bottomVisible) {
-        this._rightSplit.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+      this._left?.show();
+      if (this._lastLeftVisible !== true) {
+        this._split?.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
       }
     }
-    this._lastBottomVisible = bottomVisible;
+    this._lastLeftVisible = leftHasContent;
+
+    if (!bottomHasContent) {
+      this._rightBottom?.hide();
+      if (this._lastBottomVisible !== false) {
+        this._rightSplit?.setRelativeSizes([1, 0]);
+      }
+    } else {
+      this._rightBottom?.show();
+      if (this._lastBottomVisible !== true) {
+        this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+      }
+    }
+    this._lastBottomVisible = bottomHasContent;
   }
 }
