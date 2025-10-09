@@ -95,8 +95,12 @@ export class AppModel {
       // Keep a reference if you want to dispose it later.
       new ServerHealthMonitor(
         baseUrl,
-        () => { console.log('down') }, // void showServerDownDialog(this._context.sessionContext); },
-        () => { console.log('recovery') }// showServerRecoveredToast(); }
+        () => {
+          this._notifyConnectionLost();
+        },
+        () => {
+          console.log('Connection recovery ...');
+        }
       );
     });
 
@@ -613,6 +617,17 @@ export class AppModel {
     });
   }
 
+  /*************************************************
+   * Dialogs
+   *************************************************/
+
+  private async _notifyConnectionLost(): Promise<void> {
+    await showDialog({
+      title: 'Connection Lost',
+      body: 'Oops! It looks like we lost connection to the computing backend. Please check your internet connection or try again in a moment.',
+      buttons: [Dialog.cancelButton({ label: 'Close' })]
+    });
+  }
   private async _notifyKernelDisconnected(): Promise<void> {
     if (this._disconnectedNotified) {
       return;
