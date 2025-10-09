@@ -1,0 +1,2 @@
+exclude mervenv/*
+recursive-exclude mervenv *

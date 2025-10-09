@@ -192,3 +192,4 @@ class SliderWidget(anywidget.AnyWidget):
             #    del data["text/plain"]
 
         return data
+
