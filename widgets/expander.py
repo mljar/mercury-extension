@@ -17,11 +17,7 @@ def _ensure_global_expander_styles():
         overflow: hidden;
       }}
 
-      /* Smoother expand/collapse
-         - single primary animator: max-height
-         - gentle "spring" easing
-         - perf hints via will-change + content-visibility
-      */
+      /* Streamlit-like expander transition */
       .mljar-expander-content {{
         width: 100%;
         position: relative;
@@ -30,15 +26,14 @@ def _ensure_global_expander_styles():
         max-height: 0;
         opacity: 0;
         padding: 0 10px;
-        /* MAIN transition: use a springy cubic-bezier */
+        transform: translateY(-4px);
         transition:
-          max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
-          padding-top 220ms cubic-bezier(0.22, 1, 0.36, 1),
-          padding-bottom 220ms cubic-bezier(0.22, 1, 0.36, 1),
-          opacity 120ms linear;
-        will-change: max-height, padding-top, padding-bottom;
-        content-visibility: auto;          /* paint only when visible */
-        contain-intrinsic-size: 1px 200px; /* prevents layout jank while closed */
+          max-height 300ms cubic-bezier(0.25, 1, 0.5, 1),
+          opacity 300ms cubic-bezier(0.25, 1, 0.5, 1),
+          transform 300ms cubic-bezier(0.25, 1, 0.5, 1),
+          padding-top 300ms ease,
+          padding-bottom 300ms ease;
+        will-change: max-height, opacity, transform;
       }}
 
       .mljar-expander-content > * {{
@@ -47,7 +42,7 @@ def _ensure_global_expander_styles():
         box-sizing: border-box;
       }}
 
-      /* Divider fades in; doesn't affect layout */
+      /* Fading divider (no layout shift) */
       .mljar-expander-content::before {{
         content: "";
         position: absolute;
@@ -55,28 +50,26 @@ def _ensure_global_expander_styles():
         height: 1px;
         background: {THEME.get('border_color', '#ddd')};
         opacity: 0;
-        transition: opacity 220ms linear;
+        transition: opacity 300ms ease;
         pointer-events: none;
       }}
 
-      /* OPEN: effectively "auto" height without the pop */
+      /* Opened state – natural "ease-out" movement */
       .mljar-expander-content.is-open {{
-        max-height: 1000vh;
+        max-height: 1000vh;       /* big enough for all content */
         opacity: 1;
         padding-top: 10px;
         padding-bottom: 10px;
+        transform: translateY(0);
       }}
       .mljar-expander-content.is-open::before {{
         opacity: 1;
       }}
 
-      /* Respect users who prefer reduced motion */
       @media (prefers-reduced-motion: reduce) {{
         .mljar-expander-content {{
           transition: none;
-        }}
-        .mljar-expander-content::before {{
-          transition: none;
+          transform: none;
         }}
       }}
     </style>
