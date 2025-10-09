@@ -24,7 +24,7 @@ class ChatInputWidget(anywidget.AnyWidget):
       - placeholder, button_icon, send_on_enter, position, custom_css
 
     Internal-ish trigger:
-      - _submitted: message sent (synced), underscore-prefixed to signal non-public API.
+      - submitted: message sent (synced), underscore-prefixed to signal non-public API.
     """
 
     _esm = """
@@ -54,13 +54,13 @@ class ChatInputWidget(anywidget.AnyWidget):
         if (input.value !== newVal) input.value = newVal;
       });
 
-      // Submit logic: update _submitted and value ONLY here
+      // Submit logic: update submitted and value ONLY here
       const sendMessage = () => {
         const msg = (input.value || "").trim();
         if (!msg) return;
 
         // Signal to kernel
-        model.set("_submitted", msg);
+        model.set("submitted", msg);
 
         // Update public 'value' ONLY at submit time
         model.set("value", msg);
@@ -157,7 +157,7 @@ class ChatInputWidget(anywidget.AnyWidget):
     ).tag(sync=True)
 
     # Internal-ish trigger (still syncs, but looks private)
-    _submitted = traitlets.Unicode("").tag(sync=True)
+    submitted = traitlets.Unicode("").tag(sync=True)
 
     def _repr_mimebundle_(self, **kwargs):
         data = super()._repr_mimebundle_(**kwargs)

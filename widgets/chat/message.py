@@ -1,6 +1,8 @@
 import ipywidgets as widgets
 from IPython.display import display, HTML as DHTML, Javascript, Markdown
 
+MSG_CSS_CLASS = "mljar-chat-msg"
+
 class Message(widgets.HBox):
     def __init__(self, role="user", emoji="👤"):
         super().__init__()
@@ -20,31 +22,83 @@ class Message(widgets.HBox):
             layout=widgets.Layout(
                 align_self="flex-start",
                 margin="8px 0 0 0",
-                overflow_y="visible",  
+                overflow_y="visible",
                 overflow_x="visible",
             )
         )
+        self.output.add_class(MSG_CSS_CLASS)
         self.children = [avatar, self.output]
         self.layout.align_items = "flex-start"
+
+        # Buffers + mode
+        self._mode = None  # one of {"markdown","html","text", None}
         self._md_buffer = ""
+        self._html_buffer = ""
+        self._text_buffer = ""
+
+    # ------- internal helpers -------
+
+    def _render(self):
+        """Re-render the current buffer based on mode."""
+        self.output.clear_output(wait=True)
+        with self.output:
+            if self._mode == "markdown":
+                display(Markdown(self._md_buffer))
+            elif self._mode == "html":
+                display(DHTML(self._html_buffer))
+            elif self._mode == "text":
+                print(self._text_buffer)
+
+    def _set_mode(self, mode):
+        """Switch rendering mode and reset other buffers if needed."""
+        if mode not in {"markdown","html","text"}:
+            raise ValueError("mode must be 'markdown', 'html', or 'text'")
+        if self._mode != mode:
+            # switching mode: keep only the relevant buffer
+            if mode == "markdown":
+                self._md_buffer = ""
+            elif mode == "html":
+                self._html_buffer = ""
+            elif mode == "text":
+                self._text_buffer = ""
+            self._mode = mode
+
+    # ------- public API -------
 
     def set_message(self, text=None, html=None, markdown=None):
-        self.output.clear_output(wait=True)
-        with self.output:
-            if markdown is not None:
-                display(Markdown(markdown))
-            elif html is not None:
-                display(DHTML(html))
-            elif text is not None:
-                print(text)
-    
+        """Replace content entirely (choose one of text/html/markdown)."""
+        if sum(v is not None for v in (text, html, markdown)) != 1:
+            raise ValueError("Provide exactly one of text=, html=, markdown=")
+
+        if markdown is not None:
+            self._set_mode("markdown")
+            self._md_buffer = markdown
+        elif html is not None:
+            self._set_mode("html")
+            self._html_buffer = html
+        elif text is not None:
+            self._set_mode("text")
+            self._text_buffer = text
+
+        self._render()
+
     def append_markdown(self, chunk: str):
         """Append a markdown chunk and re-render."""
+        self._set_mode("markdown")
         self._md_buffer += chunk
-        self.output.clear_output(wait=True)
-        with self.output:
-            from IPython.display import Markdown, display
-            display(Markdown(self._md_buffer))
+        self._render()
+
+    def append_text(self, chunk: str):
+        """Append plain text (no markdown/HTML parsing) and re-render."""
+        self._set_mode("text")
+        self._text_buffer += chunk
+        self._render()
+
+    def append_html(self, chunk: str):
+        """Append raw HTML and re-render."""
+        self._set_mode("html")
+        self._html_buffer += chunk
+        self._render()
 
     def set_bouncing_text(self, text: str, color="#444"):
         """Render any string with bouncing animation per character."""

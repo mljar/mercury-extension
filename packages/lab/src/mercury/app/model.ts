@@ -625,7 +625,7 @@ export class AppModel {
     await showDialog({
       title: 'Connection Lost',
       body: 'Oops! It looks like we lost connection to the computing backend. Please check your internet connection or try again in a moment.',
-      buttons: [Dialog.cancelButton({ label: 'Close' })]
+      buttons: [] // [Dialog.cancelButton({ label: 'Close' })]
     });
   }
   private async _notifyKernelDisconnected(): Promise<void> {

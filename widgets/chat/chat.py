@@ -2,7 +2,9 @@ import uuid
 import json
 import ipywidgets as widgets
 from IPython.display import display, Javascript
-from .message import Message
+from .message import Message, MSG_CSS_CLASS
+
+
 
 class Chat:
     def __init__(self, placeholder="💬 No messages yet. Start the conversation!"):
@@ -103,7 +105,7 @@ class Chat:
             "  const chats = document.getElementsByClassName(" + chat_class_json + ");",
             "  if(!chats || !chats.length) return;",
             "  const chat = chats[0];",
-            "  const msgs = chat.getElementsByClassName('mljar-chat-msg');",
+            "  const msgs = chat.getElementsByClassName('" + MSG_CSS_CLASS + "');",
             "  if(!msgs || !msgs.length) return;",
             "  const last = msgs[msgs.length - 1];",
             "",
@@ -125,11 +127,6 @@ class Chat:
 
 
     def add(self, message: Message):
-        # Tag each message so JS can find it
-        try:
-            message.add_class("mljar-chat-msg")
-        except Exception:
-            pass
         self.messages.append(message)
         self._render()
 
@@ -137,8 +134,3 @@ class Chat:
         self.messages.clear()
         self._render()
 
-    def add_text(self, role="user", emoji="👤", text=""):
-        m = Message(role=role, emoji=emoji)
-        m.set_message(text=text)
-        self.add(m)
-        return m
