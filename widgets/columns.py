@@ -3,7 +3,24 @@ from IPython.display import display
 
 from .manager import WidgetsManager
 
-def Columns(n=2, min_width='240px', gap='16px', key=""):
+def Columns(n=2, min_width='240px', gap='16px', border='1px solid lightgray', key=""):
+    """
+    Create a responsive row of Output widgets.
+
+    Parameters
+    ----------
+    n : int
+        Number of columns.
+    min_width : str
+        Minimum width for each column (e.g. '240px').
+    gap : str
+        Gap between columns (e.g. '16px').
+    border : str or None
+        CSS border style (e.g. '1px solid lightgray').
+        Set to None or '' to disable borders.
+    key : str
+        Cache key for reuse.
+    """
     code_uid = WidgetsManager.get_code_uid("Columns", key=key)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
@@ -22,9 +39,16 @@ def Columns(n=2, min_width='240px', gap='16px', key=""):
             align_items='stretch',
         )
     )
+
     for out in outs:
         out.layout.min_width = min_width
         out.layout.flex = '1 1 0px'
+        if border:
+            out.layout.border = border
+            out.layout.padding = '8px'
+            out.layout.box_sizing = 'border-box'
+            out.layout.border_radius = '8px'  # optional, looks nice
+
     display(box)
     WidgetsManager.add_widget(code_uid, (box, tuple(outs)))
     return tuple(outs)
