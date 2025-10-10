@@ -19,9 +19,9 @@ def display_style():
     """
 
     display(HTML(css))
-    
 
-def Columns(n=2, min_width='240px', gap='16px', border='1px solid lightgray', key=""):
+
+def Columns(n=2, min_width='240px', gap='16px', border=None, key=""):
     """
     Create a responsive row of Output widgets.
 
@@ -64,12 +64,16 @@ def Columns(n=2, min_width='240px', gap='16px', border='1px solid lightgray', ke
         out.layout.min_width = min_width
         out.layout.flex = '1 1 0px'
 
-        # klasa CSS dla każdej kolumny
         out.add_class('mljar-column')
 
-        # opcjonalne obramowanie
-        if border:
-            out.layout.border = border
+        show_border = THEME.get("border_visible", False) 
+        # if border is set in constructor please respect its value
+        # over defaults from theme config.toml
+        if border is not None:
+            show_border = border
+        if show_border:
+            border_color = THEME.get("border_color", "lightgray")            
+            out.layout.border = f"1px solid {border_color}"
             out.layout.padding = '4px'
             out.layout.box_sizing = 'border-box'
 

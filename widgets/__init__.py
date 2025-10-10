@@ -5,3 +5,4 @@ from .chat.chat import Chat
 from .chat.chatinput import ChatInput
 from .chat.message import Message 
 
+from IPython.display import display
