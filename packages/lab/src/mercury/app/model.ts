@@ -634,27 +634,27 @@ export class AppModel {
     }
     this._disconnectedNotified = true;
 
-    const result = await showDialog({
-      title: 'Connection lost',
-      body: 'Computing backend disconnected.',
-      buttons: [
-        //Dialog.createButton({ label: 'Restart kernel', accept: true }),
-        //Dialog.okButton({ label: 'OK' }),
-        Dialog.cancelButton({ label: 'Close' })
-      ]
-    });
+    // const result = await showDialog({
+    //   title: 'Connection lost',
+    //   body: 'Computing backend disconnected.',
+    //   buttons: [
+    //     //Dialog.createButton({ label: 'Restart kernel', accept: true }),
+    //     //Dialog.okButton({ label: 'OK' }),
+    //     Dialog.cancelButton({ label: 'Close' })
+    //   ]
+    // });
 
-    // Handle the choice
-    const label = result.button.label;
-    try {
-      if (label === 'OK') {
-        // Reload is often the cleanest way to recover websocket/session state
-        // window.location.reload();
-      }
-    } finally {
-      // allow future notifications if user recovered successfully
-      this._disconnectedNotified = false;
-    }
+    // // Handle the choice
+    // const label = result.button.label;
+    // try {
+    //   if (label === 'OK') {
+    //     // Reload is often the cleanest way to recover websocket/session state
+    //     // window.location.reload();
+    //   }
+    // } finally {
+    //   // allow future notifications if user recovered successfully
+    //   this._disconnectedNotified = false;
+    // }
   }
 
   /*************************************************
