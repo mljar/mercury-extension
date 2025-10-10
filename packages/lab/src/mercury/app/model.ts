@@ -622,6 +622,10 @@ export class AppModel {
    *************************************************/
 
   private async _notifyConnectionLost(): Promise<void> {
+    if (this._disconnectedNotified) {
+      return;
+    }
+    this._disconnectedNotified = true;
     await showDialog({
       title: 'Connection Lost',
       body: 'Oops! It looks like we lost connection to the computing backend. Please check your internet connection or try again in a moment.',
