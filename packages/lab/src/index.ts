@@ -9,7 +9,6 @@ import { commands } from './commands';
 import { mercuryCellExecutor, defaultCellExecutor } from './executor';
 
 export {
-  AppWidget,
   IMercuryTracker,
   MercuryWidget,
   MercuryWidgetFactory

@@ -1,4 +1,3 @@
-
 import anywidget
 import traitlets
 from IPython.display import display
@@ -18,10 +17,10 @@ class FileWidget(anywidget.AnyWidget):
     _esm = """
     function render({ model, el }) {
       el.innerHTML = ""; // clear
-      
+
       let container = document.createElement("div");
       container.classList.add("mljar-file-container");
-      
+
       let label = document.createElement("div");
       label.classList.add("mljar-file-label");
       label.innerHTML = model.get("label") || "File upload";
@@ -30,7 +29,6 @@ class FileWidget(anywidget.AnyWidget):
       let dropzone = document.createElement("div");
       dropzone.classList.add("mljar-file-dropzone");
       dropzone.innerHTML = `
-        
         <div>Drag and drop files here</div>
         <div class="mljar-file-drop-hint">Limit ${model.get("max_file_size")} per file</div>
       `;
@@ -46,10 +44,11 @@ class FileWidget(anywidget.AnyWidget):
       input.disabled = model.get("disabled");
       input.multiple = model.get("multiple");
       input.style.display = "none";
+
       if (model.get("hidden")) {
         container.style.display = "none";
       }
-      
+
       browseBtn.onclick = () => input.click();
 
       // File list
@@ -110,7 +109,7 @@ class FileWidget(anywidget.AnyWidget):
       function updateList() {
         fileList.innerHTML = "";
         const files = model.get("filenames");
-        for (let i=0; i<files.length; ++i) {
+        for (let i = 0; i < files.length; ++i) {
           let li = document.createElement("li");
           li.classList.add("mljar-file-list-item");
           li.innerHTML = `<span class="mljar-file-icon">📄</span> ${files[i]}`;
@@ -120,8 +119,8 @@ class FileWidget(anywidget.AnyWidget):
           remove.onclick = () => {
             let newVals = [...model.get("values")];
             let newNames = [...model.get("filenames")];
-            newVals.splice(i,1);
-            newNames.splice(i,1);
+            newVals.splice(i, 1);
+            newNames.splice(i, 1);
             model.set("values", newVals);
             model.set("filenames", newNames);
             model.save_changes();
@@ -140,6 +139,30 @@ class FileWidget(anywidget.AnyWidget):
       container.appendChild(input);
       container.appendChild(fileList);
       el.appendChild(container);
+
+      // ---- read cell id (no DOM modifications) ----
+      const ID_ATTR = 'data-cell-id';
+      const hostWithId = el.closest(`[${ID_ATTR}]`);
+      const cellId = hostWithId ? hostWithId.getAttribute(ID_ATTR) : null;
+
+      if (cellId) {
+        model.set('cell_id', cellId);
+        model.save_changes();
+        model.send({ type: 'cell_id_detected', value: cellId });
+      } else {
+        // handle case where the attribute appears slightly later
+        const mo = new MutationObserver(() => {
+          const host = el.closest(`[${ID_ATTR}]`);
+          const newId = host?.getAttribute(ID_ATTR);
+          if (newId) {
+            model.set('cell_id', newId);
+            model.save_changes();
+            model.send({ type: 'cell_id_detected', value: newId });
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [ID_ATTR] });
+      }
 
       // Style
       const css = `
@@ -260,6 +283,14 @@ class FileWidget(anywidget.AnyWidget):
       styleTag.textContent = css;
       el.appendChild(styleTag);
 
+      // Optional: apply custom CSS if provided
+      const extraCSS = model.get("custom_css");
+      if (extraCSS && extraCSS.trim().length > 0) {
+        let extra = document.createElement("style");
+        extra.textContent = extraCSS;
+        el.appendChild(extra);
+      }
+
       updateList();
     }
     export default { render };
@@ -278,9 +309,10 @@ class FileWidget(anywidget.AnyWidget):
         default_value="sidebar",
         help="Widget placement: sidebar, inline, or bottom"
     ).tag(sync=True)
+    # NEW: synced cell id
+    cell_id = traitlets.Unicode(allow_none=True).tag(sync=True)
 
     # ---- Streamlit-like API ----
-
     @property
     def value(self):
         if self.values and self.values[0]:
@@ -316,7 +348,7 @@ class FileWidget(anywidget.AnyWidget):
         return self.key
 
     def _repr_mimebundle_(self, **kwargs):
-        data = super()._repr_mimebundle_()
+        data = super()._repr_mimebundle_(**kwargs)
         if len(data) > 1:
             mercury_mime = {
                 "widget": type(self).__qualname__,
@@ -327,7 +359,6 @@ class FileWidget(anywidget.AnyWidget):
             data[0][MERCURY_MIMETYPE] = json.dumps(mercury_mime, indent=4)
             #if "text/plain" in data:
             #    del data["text/plain"]
-
         return data
 
 def File(label="Choose a file", max_file_size="100MB", key="", disabled=False, hidden=False, multiple=False):

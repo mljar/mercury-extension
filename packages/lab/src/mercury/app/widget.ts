@@ -21,6 +21,7 @@ import {
 } from './ipyWidgetsHelpers';
 
 import { removeElements } from './domHelpers';
+import { OutputStamper } from './outputStamper';
 
 /**
  * Default layout ratios and colors.
@@ -330,6 +331,7 @@ export class AppWidget extends Panel {
   /**
    * Create a CellItemWidget for a given ICellModel.
    */
+  private outputStamper = new OutputStamper();
   private createCell(cellModel: ICellModel): CellItemWidget {
     let widget: Cell;
     let sidebar = false;
@@ -344,6 +346,8 @@ export class AppWidget extends Panel {
           editorConfig: this._model.editorConfig.code
         });
         cell.readOnly = true;
+
+        this.outputStamper.attach(cell);
 
         // Look for MERCURY metadata to decide placement
         for (let i = 0; i < cell.outputArea.model.length; i++) {

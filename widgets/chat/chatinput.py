@@ -21,7 +21,7 @@ class ChatInputWidget(anywidget.AnyWidget):
     """
     Public traits:
       - value: last submitted text (updates only on submit)
-      - placeholder, button_icon, send_on_enter, position, custom_css
+      - placeholder, button_icon, send_on_enter, position, custom_css, cell_id
 
     Internal-ish trigger:
       - submitted: message sent (synced), underscore-prefixed to signal non-public API.
@@ -90,6 +90,30 @@ class ChatInputWidget(anywidget.AnyWidget):
         styleTag.textContent = css;
         el.appendChild(styleTag);
       }
+
+      // ---- read cell id (no DOM modifications) ----
+      const ID_ATTR = 'data-cell-id';
+      const hostWithId = el.closest(`[${ID_ATTR}]`);
+      const cellId = hostWithId ? hostWithId.getAttribute(ID_ATTR) : null;
+
+      if (cellId) {
+        model.set('cell_id', cellId);
+        model.save_changes();
+        model.send({ type: 'cell_id_detected', value: cellId });
+      } else {
+        // handle case where the attribute appears slightly later
+        const mo = new MutationObserver(() => {
+          const host = el.closest(`[${ID_ATTR}]`);
+          const newId = host?.getAttribute(ID_ATTR);
+          if (newId) {
+            model.set('cell_id', newId);
+            model.save_changes();
+            model.send({ type: 'cell_id_detected', value: newId });
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [ID_ATTR] });
+      }
     }
     export default { render };
     """
@@ -141,7 +165,7 @@ class ChatInputWidget(anywidget.AnyWidget):
     """
 
     # Public traits
-    value = traitlets.Unicode("").tag(sync=True)  # now: "last submitted" only
+    value = traitlets.Unicode("").tag(sync=True)  # last submitted
     placeholder = traitlets.Unicode("Type a message...").tag(sync=True)
     button_icon = traitlets.Unicode("➤").tag(sync=True)
     send_on_enter = traitlets.Bool(True).tag(sync=True)
@@ -155,6 +179,9 @@ class ChatInputWidget(anywidget.AnyWidget):
         default_value="bottom",
         help="Widget placement: sidebar, inline, or bottom",
     ).tag(sync=True)
+
+    # NEW: synced cell id
+    cell_id = traitlets.Unicode(allow_none=True).tag(sync=True)
 
     # Internal-ish trigger (still syncs, but looks private)
     submitted = traitlets.Unicode("").tag(sync=True)

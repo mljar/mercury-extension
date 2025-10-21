@@ -18,7 +18,6 @@ import { IMercuryTracker, MercuryWidget } from './widget';
 
 import { OpenMercuryButton } from './toolbar/button';
 
-export { AppWidget } from './app/widget';
 export * from './factory';
 export * from './widget';
 

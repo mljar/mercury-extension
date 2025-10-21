@@ -17,68 +17,82 @@ def Slider(*args, key="", **kwargs):
 
 class SliderWidget(anywidget.AnyWidget):
     _esm = """
-    function render({ model, el }) {
-      // Container for the whole widget
-      let container = document.createElement("div");
-      container.classList.add("mljar-slider-container");
+function render({ model, el }) {
+  // Your existing UI creation code (unchanged) ...
+  const container = document.createElement("div");
+  container.classList.add("mljar-slider-container");
 
-      // Top label (left-aligned)
-      let topLabel = document.createElement("div");
-      topLabel.classList.add("mljar-slider-top-label");
-      topLabel.innerHTML = model.get("label") || "Select number";
+  const topLabel = document.createElement("div");
+  topLabel.classList.add("mljar-slider-top-label");
+  topLabel.innerHTML = model.get("label") || "Select number";
 
-      // Row: slider and value label
-      let sliderRow = document.createElement("div");
-      sliderRow.classList.add("mljar-slider-row");
+  const sliderRow = document.createElement("div");
+  sliderRow.classList.add("mljar-slider-row");
 
-      // Slider input
-      let slider = document.createElement("input");
-      slider.type = "range";
-      slider.min = model.get("min");
-      slider.max = model.get("max");
-      slider.value = model.get("value");
-      slider.classList.add("mljar-slider-input");
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = model.get("min");
+  slider.max = model.get("max");
+  slider.value = model.get("value");
+  slider.classList.add("mljar-slider-input");
 
-      // Value label (to the right of slider)
-      let valueLabel = document.createElement("span");
-      valueLabel.classList.add("mljar-slider-value-label");
-      valueLabel.innerHTML = model.get("value");
+  const valueLabel = document.createElement("span");
+  valueLabel.classList.add("mljar-slider-value-label");
+  valueLabel.innerHTML = model.get("value");
 
-      //slider.addEventListener("input", () => {
-      //  model.set("value", Number(slider.value));
-      //  model.save_changes();
-      //});
-      let debounceTimer = null;
-      slider.addEventListener("input", () => {
-        model.set("value", Number(slider.value));
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            model.save_changes();
-        }, 100);
-      });
+  let debounceTimer = null;
+  slider.addEventListener("input", () => {
+    model.set("value", Number(slider.value));
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => model.save_changes(), 100);
+  });
 
-      model.on("change:value", () => {
-        slider.value = model.get("value");
-        valueLabel.innerHTML = model.get("value");
-      });
+  model.on("change:value", () => {
+    slider.value = model.get("value");
+    valueLabel.innerHTML = model.get("value");
+  });
 
-      // Assemble row
-      sliderRow.appendChild(slider);
-      sliderRow.appendChild(valueLabel);
+  sliderRow.appendChild(slider);
+  sliderRow.appendChild(valueLabel);
+  container.appendChild(topLabel);
+  container.appendChild(sliderRow);
+  el.appendChild(container);
 
-      // Build structure
-      container.appendChild(topLabel);
-      container.appendChild(sliderRow);
-      el.appendChild(container);
+  // ---- read cell id (no DOM modifications) ----
+const LOG_PREFIX = '[SliderWidget]';
+const ID_ATTR = 'data-cell-id';
+const hostWithId = el.closest(`[${ID_ATTR}]`);
+const cellId = hostWithId ? hostWithId.getAttribute(ID_ATTR) : null;
 
-      const css = model.get("custom_css");
-      if (css && css.trim().length > 0) {
-        let styleTag = document.createElement("style");
-        styleTag.textContent = css;
-        el.appendChild(styleTag);
+if (cellId) {
+  // console.log(`${LOG_PREFIX} found cell_id`, cellId);
+  model.set('cell_id', cellId);
+  model.save_changes();
+  // also send an explicit event
+  model.send({ type: 'cell_id_detected', value: cellId });
+        
+}
+
+  // Optional: handle case where stamp might appear slightly later
+  if (!cellId) {
+    const mo = new MutationObserver(() => {
+      const host = el.closest(`[${ID_ATTR}]`);
+      const newId = host?.getAttribute(ID_ATTR);
+      if (newId) {
+        // console.log('set cell id', newId);
+        model.set('cell_id', newId);
+        model.save_changes();
+        
+        // also send an explicit event
+        model.send({ type: 'cell_id_detected', value: newId });
+        
+        mo.disconnect();
       }
-    }
-    export default { render };
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [ID_ATTR] });
+  }
+}
+export default { render };
     """
     _css = f"""
     .mljar-slider-container {{
@@ -176,7 +190,7 @@ class SliderWidget(anywidget.AnyWidget):
         default_value="sidebar",
         help="Widget placement: sidebar, inline, or bottom"
     ).tag(sync=True)
-
+    cell_id = traitlets.Unicode(allow_none=True).tag(sync=True)
 
     def _repr_mimebundle_(self, **kwargs):
         data = super()._repr_mimebundle_()
