@@ -182,6 +182,30 @@ class MultiSelectWidget(anywidget.AnyWidget):
         styleTag.textContent = css;
         el.appendChild(styleTag);
       }
+
+      // ---- read cell id (no DOM modifications) ----
+      const ID_ATTR = 'data-cell-id';
+      const hostWithId = el.closest(`[${ID_ATTR}]`);
+      const cellId = hostWithId ? hostWithId.getAttribute(ID_ATTR) : null;
+
+      if (cellId) {
+        model.set('cell_id', cellId);
+        model.save_changes();
+        model.send({ type: 'cell_id_detected', value: cellId });
+      } else {
+        // handle case where the attribute appears slightly later
+        const mo = new MutationObserver(() => {
+          const host = el.closest(`[${ID_ATTR}]`);
+          const newId = host?.getAttribute(ID_ATTR);
+          if (newId) {
+            model.set('cell_id', newId);
+            model.save_changes();
+            model.send({ type: 'cell_id_detected', value: newId });
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [ID_ATTR] });
+      }
     }
     export default { render };
     """
@@ -264,6 +288,7 @@ class MultiSelectWidget(anywidget.AnyWidget):
         default_value="sidebar",
         help="Widget placement: sidebar, inline, or bottom",
     ).tag(sync=True)
+    cell_id = traitlets.Unicode(allow_none=True).tag(sync=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -27,7 +27,7 @@ class TextInputWidget(anywidget.AnyWidget):
       topLabel.classList.add("mljar-textinput-top-label");
       topLabel.innerHTML = model.get("label") || "Enter text";
 
-      // Always Input
+      // Input
       let input = document.createElement("input");
       input.type = "text";
       input.value = model.get("value");
@@ -37,9 +37,7 @@ class TextInputWidget(anywidget.AnyWidget):
       input.addEventListener("input", () => {
         model.set("value", input.value);
         if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          model.save_changes();
-        }, 100);
+        debounceTimer = setTimeout(() => model.save_changes(), 100);
       });
 
       model.on("change:value", () => {
@@ -56,6 +54,30 @@ class TextInputWidget(anywidget.AnyWidget):
         let styleTag = document.createElement("style");
         styleTag.textContent = css;
         el.appendChild(styleTag);
+      }
+
+      // ---- read cell id (no DOM modifications) ----
+      const ID_ATTR = 'data-cell-id';
+      const hostWithId = el.closest(`[${ID_ATTR}]`);
+      const cellId = hostWithId ? hostWithId.getAttribute(ID_ATTR) : null;
+
+      if (cellId) {
+        model.set('cell_id', cellId);
+        model.save_changes();
+        model.send({ type: 'cell_id_detected', value: cellId });
+      } else {
+        // handle case where the attribute appears slightly later
+        const mo = new MutationObserver(() => {
+          const host = el.closest(`[${ID_ATTR}]`);
+          const newId = host?.getAttribute(ID_ATTR);
+          if (newId) {
+            model.set('cell_id', newId);
+            model.save_changes();
+            model.send({ type: 'cell_id_detected', value: newId });
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [ID_ATTR] });
       }
     }
     export default { render };
@@ -107,6 +129,7 @@ class TextInputWidget(anywidget.AnyWidget):
         default_value="sidebar",
         help="Widget placement: sidebar, inline, or bottom"
     ).tag(sync=True)
+    cell_id = traitlets.Unicode(allow_none=True).tag(sync=True) 
 
     def _repr_mimebundle_(self, **kwargs):
         data = super()._repr_mimebundle_()
