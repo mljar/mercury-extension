@@ -1,4 +1,4 @@
-import { showDialog, Dialog } from '@jupyterlab/apputils';
+import { showDialog } from '@jupyterlab/apputils';
 import { CellChange, YNotebook, createMutex } from '@jupyter/ydoc';
 import type { ISessionContext } from '@jupyterlab/apputils';
 import {
@@ -446,6 +446,27 @@ export class AppModel {
     const { direction, msg } = args;
 
     if (direction === 'send') {
+      if (msg.channel === 'shell' && msg.header.msg_type === 'comm_msg') {
+        const commMsg = msg as ICommMsgMsg<'shell'>;
+        const data: any = (commMsg as any)?.content?.data ?? {};
+        const commId = commMsg.content.comm_id;
+        // handle custom cell_id_detected message
+        if (
+          data?.method === 'custom' &&
+          data?.content?.type === 'cell_id_detected'
+        ) {
+          const cellId = String(data.content.value ?? '');
+          if (commId && cellId) {
+            this._ipywidgetToCellId.set(commId, cellId);
+            //console.log(
+            //  `[CellIDCapture] mapped widget ${commId} -> cell ${cellId} (send/custom)`
+            //);
+            return;
+          }
+        }
+      }
+    }
+    if (direction === 'send') {
       if (
         msg.channel === 'shell' &&
         msg.header.msg_type === 'comm_msg' &&
@@ -464,6 +485,7 @@ export class AppModel {
     }
 
     let commId = '';
+    let updateCellId: string | undefined = '';
     switch (msg.header.msg_type) {
       case 'comm_msg': {
         const content = (msg as ICommMsgMsg<'iopub'>).content;
@@ -473,6 +495,23 @@ export class AppModel {
           this._updateMessages.has(content.comm_id)
         ) {
           commId = content.comm_id;
+
+          const d = (content as any).data;
+
+          if (
+            d &&
+            typeof d === 'object' &&
+            !Array.isArray(d) &&
+            d.method === 'echo_update' &&
+            this._updateMessages.has(content.comm_id)
+          ) {
+            const s = (d as any).state;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            updateCellId =
+              s && typeof s === 'object' && !Array.isArray(s)
+                ? ((s as any).cell_id as string | undefined)
+                : undefined;
+          }
         }
         break;
       }
@@ -503,10 +542,14 @@ export class AppModel {
     }
 
     this._updateMessages.delete(commId);
-    this._widgetUpdated.emit({
-      widgetModelId: commId,
-      cellModelId: this._ipywidgetToCellId.get(commId)
-    });
+    if (updateCellId && updateCellId !== '') {
+      this._ipywidgetToCellId.set(commId, updateCellId);
+    } else {
+      this._widgetUpdated.emit({
+        widgetModelId: commId,
+        cellModelId: this._ipywidgetToCellId.get(commId)
+      });
+    }
   }
 
   /*************************************************
