@@ -23,6 +23,49 @@ import {
 import { removeElements } from './domHelpers';
 import { OutputStamper } from './outputStamper';
 
+// --- metadata helpers for showCode (JL4 sharedModel first, legacy fallback)
+import type { INotebookModel } from '@jupyterlab/notebook';
+import type { DocumentRegistry } from '@jupyterlab/docregistry';
+import type { IObservableJSON } from '@jupyterlab/observables';
+
+function readShowCodeFromContext(
+  context: DocumentRegistry.IContext<INotebookModel>
+): boolean | undefined {
+  const shared = (context.model as any)?.sharedModel;
+  if (shared?.getMetadata) {
+    const all = shared.getMetadata() ?? {};
+    const v = (all as any)?.mercury?.showCode;
+    return typeof v === 'boolean' ? v : undefined;
+  }
+  const md = context.model?.metadata as unknown as IObservableJSON | undefined;
+  const mercury = (md?.get?.('mercury') as any) ?? {};
+  const v = mercury?.showCode;
+  return typeof v === 'boolean' ? v : undefined;
+}
+
+function bindShowCodeListener(
+  context: DocumentRegistry.IContext<INotebookModel>,
+  onChange: () => void
+): void {
+  const shared = (context.model as any)?.sharedModel;
+  if (shared?.changed?.connect) {
+    shared.changed.connect(() => onChange());
+    return;
+  }
+  const md = context.model?.metadata as unknown as IObservableJSON | undefined;
+  // @ts-ignore Signal exists at runtime
+  md?.changed?.connect?.(() => onChange());
+}
+
+// simple debounce; good enough for UI toggles
+function debounce<T extends (...args: any[]) => void>(fn: T, ms = 80) {
+  let t: number | undefined;
+  return (...args: Parameters<T>) => {
+    if (t) window.clearTimeout(t);
+    t = window.setTimeout(() => fn(...args), ms);
+  };
+}
+
 /**
  * Default layout ratios and colors.
  */
@@ -117,6 +160,29 @@ export class AppWidget extends Panel {
   // Visibility bookkeeping to avoid redundant size resets.
   private _lastLeftVisible = false;
   private _lastBottomVisible = false;
+  private _initialized = false;   // true after the first initializeCells finishes
+  private _rebuilding = false;    // guards against concurrent rebuilds
+
+  // Stable signal handler refs
+  private _cellsChangedHandler = (_: any, args: any) => this.onCellsChanged(args);
+  private _mercuryWidgetAddedHandler = (_: any, payload: { cellId: string; position?: string }) => {
+    const item = this._cellItems.find(w => w.cellId === payload.cellId);
+    if (item && item.child instanceof CodeCell) {
+      this.placeCell(item.child, payload.position);
+      // If showCode is on and the input is in rightTop, also re-order the input
+      if (this._showCode && item.child.parent === this._rightTop) {
+        const order = this._cellOrder.get(item.child.model.id);
+        const idx = this.insertionIndexFor(this._rightTop, order, 'input');
+        if ((this._rightTop.layout as any)?.removeWidget) {
+          (this._rightTop.layout as any).removeWidget(item.child);
+        }
+        this._rightTop.insertWidget(idx, item.child);
+      }
+    }
+  };
+  private _cellsChangedConnected = false;
+  private _widgetUpdatedConnected = false;
+  private _mercuryWidgetAddedConnected = false;
 
   constructor(model: AppModel) {
     super();
@@ -141,19 +207,26 @@ export class AppWidget extends Panel {
     // Add root container to this widget
     this.addWidget(this._split);
 
+    const scheduleRebuild = debounce(() => this.rebuildForShowCodeChange(), 80);
+    bindShowCodeListener(this._model.context, () => {
+      const v = readShowCodeFromContext(this._model.context);
+      if (typeof v === 'boolean' && v !== this._showCode) {
+        this._showCode = v;
+        scheduleRebuild();
+      }
+    });
+
     // Sidebar toggle buttons
     this.installSidebarToggles();
 
     // When the model is ready, populate all cell widgets
     this._model.ready.connect(() => this.initializeCells());
 
-    // When a mercury widget is added (from outputs), try to place it
-    this._model.mercuryWidgetAdded.connect((_, { cellId, position }) => {
-      const item = this._cellItems.find(w => w.cellId === cellId);
-      if (item && item.child instanceof CodeCell) {
-        this.placeCell(item.child, position);
-      }
-    });
+    // When a mercury widget is added (from outputs), try to place it — single connection
+    if (!this._mercuryWidgetAddedConnected) {
+      this._model.mercuryWidgetAdded.connect(this._mercuryWidgetAddedHandler);
+      this._mercuryWidgetAddedConnected = true;
+    }
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -186,20 +259,32 @@ export class AppWidget extends Panel {
     }
 
     try {
+      if (this._widgetUpdatedConnected) {
+        this._model?.widgetUpdated?.disconnect(this.onWidgetUpdate, this);
+        this._widgetUpdatedConnected = false;
+      }
+    } catch { }
+    try {
+      if (this._cellsChangedConnected) {
+        this._model?.cells?.changed?.disconnect(this._cellsChangedHandler);
+        this._cellsChangedConnected = false;
+      }
+    } catch { }
+    try {
+      if (this._mercuryWidgetAddedConnected) {
+        this._model?.mercuryWidgetAdded?.disconnect(this._mercuryWidgetAddedHandler);
+        this._mercuryWidgetAddedConnected = false;
+      }
+    } catch { }
+
+    try {
       this._model?.ready?.disconnect(this.initializeCells, this);
-      this._model?.widgetUpdated?.disconnect(this.onWidgetUpdate, this);
-      this._model?.mercuryWidgetAdded?.disconnect(undefined as any, this);
-      this._model?.cells?.changed?.disconnect(undefined as any, this);
-    } catch {
-      /* empty */
-    }
+    } catch { }
 
     for (const item of this._cellItems) {
       try {
         item.child?.model?.stateChanged?.disconnect(undefined as any, this);
-      } catch {
-        /* empty */
-      }
+      } catch { }
     }
     this._cellItems = [];
     this._left = null as any;
@@ -211,6 +296,7 @@ export class AppWidget extends Panel {
     Signal.clearData(this);
     super.dispose();
   }
+
   // ────────────────────────────────────────────────────────────────────────────
   // Public API
   // ────────────────────────────────────────────────────────────────────────────
@@ -267,7 +353,8 @@ export class AppWidget extends Panel {
 
     // Compute stable insertion index from notebook order
     const order = this._cellOrder.get(cell.model.id);
-    const idx = this.insertionIndexFor(target, order);
+    const kind = target === this._rightTop ? 'output' : 'other';
+    const idx = this.insertionIndexFor(target, order, kind);
 
     // Insert in order if possible; otherwise append
     if (typeof (target as any).insertWidget === 'function') {
@@ -284,6 +371,16 @@ export class AppWidget extends Panel {
   // Initialization
   // ────────────────────────────────────────────────────────────────────────────
 
+  private hideInlineOutputWrapper(cell: CodeCell) {
+    const el = cell.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
+    if (el) el.style.display = 'none';
+  }
+
+  // private showInlineOutputWrapper(cell: CodeCell) {
+  //   const el = cell.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
+  //   if (el) el.style.display = '';
+  // }
+
   private initializeCells(): void {
     const cells = this._model.cells;
 
@@ -299,10 +396,11 @@ export class AppWidget extends Panel {
         const oa = code.outputArea;
 
         if (this._showCode) {
-          // Show cell input; hide its outputs in the code view
-          this._rightTop.addWidget(code);
-          const outputEl = code.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
-          if (outputEl) outputEl.style.display = 'none';
+          // ORDERED insert of code INPUT into rightTop
+          const order = this._cellOrder.get(code.model.id);
+          const idx = this.insertionIndexFor(this._rightTop, order, 'input');
+          this._rightTop.insertWidget(idx, code);
+          this.hideInlineOutputWrapper(code);
         }
 
         if (item.sidebar) {
@@ -310,22 +408,136 @@ export class AppWidget extends Panel {
         } else if (item.bottom) {
           this._rightBottom.addWidget(oa);
         } else {
-          this._rightTop.addWidget(oa);
+          // inline outputs go to rightTop in order — make sure outputs come after input
+          const order = this._cellOrder.get(code.model.id);
+          const idx = this.insertionIndexFor(this._rightTop, order, 'output');
+          this._rightTop.insertWidget(idx, oa);
         }
       } else {
-        // Non-code cells go inline in the main area
-        this._rightTop.addWidget(item.child);
+        // Non-code cells go inline in the main area in order
+        const order = this._cellOrder.get(item.child.model.id);
+        const idx = this.insertionIndexFor(this._rightTop, order, 'other');
+        this._rightTop.insertWidget(idx, item.child);
       }
     }
 
     // React to per-widget updates (may trigger downstream re-execution)
+    try {
+      if (this._widgetUpdatedConnected) {
+        this._model.widgetUpdated.disconnect(this.onWidgetUpdate, this);
+      }
+    } catch { }
     this._model.widgetUpdated.connect(this.onWidgetUpdate, this);
+    this._widgetUpdatedConnected = true;
 
-    // React to structural changes in the cell list
-    this._model.cells.changed.connect((_, args) => this.onCellsChanged(args));
+    // React to structural changes in the cell list (single connection)
+    try {
+      if (this._cellsChangedConnected) {
+        this._model.cells.changed.disconnect(this._cellsChangedHandler);
+      }
+    } catch { }
+    this._model.cells.changed.connect(this._cellsChangedHandler);
+    this._cellsChangedConnected = true;
 
     this.updatePanelVisibility();
     void this.checkWidgetModels();
+
+    // ✅ cells are now ready; future toggles can safely rebuild
+    this._initialized = true;
+
+    // If metadata already has showCode, prefer it over pageConfig
+    const metaShow = readShowCodeFromContext(this._model.context);
+    if (typeof metaShow === 'boolean') {
+      this._showCode = metaShow;
+    }
+  }
+
+  /** Remove any existing sidebar toggle DOM buttons to avoid duplicates. */
+  private removeSidebarToggles(): void {
+    try {
+      this.node.querySelectorAll('.mercury-sidebar-toggle').forEach(n => n.remove());
+      this._left?.node?.querySelectorAll?.('.mercury-sidebar-toggle')?.forEach(n => n.remove());
+    } catch { /* ignore */ }
+  }
+
+  /** Full teardown + rebuild when showCode changes. */
+  private rebuildForShowCodeChange(): void {
+    if (this._rebuilding || this.isDisposed) return;
+    if (!this._initialized) return; // wait until first init
+
+    this._rebuilding = true;
+
+    // 1) Snapshot scroll position (optional nicety)
+    const scrollTop = this._rightTop?.node?.scrollTop ?? 0;
+
+    // 2) Disconnect signals we registered in initializeCells
+    try {
+      if (this._widgetUpdatedConnected) {
+        this._model.widgetUpdated.disconnect(this.onWidgetUpdate, this);
+        this._widgetUpdatedConnected = false;
+      }
+    } catch { }
+    try {
+      if (this._cellsChangedConnected) {
+        this._model.cells.changed.disconnect(this._cellsChangedHandler);
+        this._cellsChangedConnected = false;
+      }
+    } catch { }
+
+    // 3) Dispose all cell widgets we created
+    try {
+      for (const item of this._cellItems) {
+        this.disposeItem(item);
+      }
+    } catch { }
+    this._cellItems = [];
+    this._cellOrder.clear();
+
+    // 4) Remove toggle buttons to avoid duplicates
+    this.removeSidebarToggles();
+
+    // 5) Dispose existing panels/split and remove from this container
+    try {
+      if (this._split) {
+        if (this._split.parent && (this.layout as any)?.removeWidget) {
+          (this.layout as any).removeWidget(this._split);
+        }
+        this._split.dispose();
+      }
+    } catch { }
+
+    // 6) Recreate panels/splits fresh (same as constructor)
+    try {
+      const pageConfig = getPageConfig(); // ok to call again
+      this._left = this.createSidebar(pageConfig);
+      const { rightSplit, rightTop, rightBottom } = this.createRightPanels();
+      this._rightSplit = rightSplit;
+      this._rightTop = rightTop;
+      this._rightBottom = rightBottom;
+      this._split = this.createMainSplit(this._left, this._rightSplit);
+      this.addWidget(this._split);
+      this.installSidebarToggles();
+    } catch (err) {
+      console.error('[Mercury][rebuild] failed to recreate panels:', err);
+    }
+
+    // 7) Reset bookkeeping
+    this._lastLeftVisible = false;
+    this._lastBottomVisible = false;
+    this._initialized = false; // will flip to true at end of initializeCells
+
+    // 8) Re-initialize from the model (this uses current this._showCode)
+    try {
+      this.initializeCells();
+    } catch (err) {
+      console.error('[Mercury][rebuild] initializeCells error:', err);
+    }
+
+    // 9) Restore scroll position (best-effort, after a tick)
+    requestAnimationFrame(() => {
+      try { if (this._rightTop?.node) this._rightTop.node.scrollTop = scrollTop; } catch { }
+      this._rebuilding = false;
+    });
   }
 
   /**
@@ -427,17 +639,19 @@ export class AppWidget extends Panel {
   }
 
   private panelWidgets(panel: Panel | null | undefined): ReadonlyArray<Widget> {
-    // po dispose panel.layout === null → zwróć pustą listę
+    // after dispose panel.layout === null → return empty list
     return ((panel as any)?.layout?.widgets ?? []) as ReadonlyArray<Widget>;
   }
+
   /**
    * Find insertion index inside `container` so that widgets maintain notebook order.
-   * It works for:
-   *  - markdown/raw cell widgets (ci.child === w)
-   *  - code *output areas* (ci.child instanceof CodeCell && ci.child.outputArea === w)
-   *  - (optionally) code input widgets when showCode=true (ci.child === w)
+   * Ensures that code inputs appear before their outputs for the same cell in rightTop.
    */
-  private insertionIndexFor(container: Panel, targetOrder?: number): number {
+  private insertionIndexFor(
+    container: Panel,
+    targetOrder?: number,
+    targetKind: 'input' | 'output' | 'other' = 'other'
+  ): number {
     if (targetOrder === undefined) {
       return this.panelWidgets(container).length;
     }
@@ -446,60 +660,39 @@ export class AppWidget extends Panel {
     for (const w of this.panelWidgets(container)) {
       const ci = this._cellItems.find(
         c =>
-          c.child === w ||
-          (c.child instanceof CodeCell &&
-            (c.child as CodeCell).outputArea === w)
+          c.child === w || // code input or markdown/raw
+          (c.child instanceof CodeCell && (c.child as CodeCell).outputArea === w) // output area
       );
-      if (!ci) {
+      if (!ci) continue;
+
+      const otherOrder = this._cellOrder.get(ci.child.model.id);
+      if (otherOrder === undefined) continue;
+
+      if (otherOrder < targetOrder) {
+        idx++;
         continue;
       }
 
-      const otherOrder = this._cellOrder.get(ci.child.model.id);
-      if (otherOrder !== undefined && otherOrder < targetOrder) {
-        idx++;
+      if (otherOrder === targetOrder) {
+        const wIsOutput =
+          ci.child instanceof CodeCell && (ci.child as CodeCell).outputArea === w;
+        const wIsInput = ci.child === w;
+
+        // If inserting an OUTPUT, it must come AFTER its INPUT
+        if (targetKind === 'output' && wIsInput) {
+          idx++;
+          continue;
+        }
+
+        // If inserting an INPUT, it must come BEFORE its OUTPUT
+        if (targetKind === 'input' && wIsOutput) {
+          // do NOT increment; keep idx where it is so input goes before output
+          continue;
+        }
       }
     }
     return idx;
   }
-
-  // private indexFor(cell: CodeCell): number {
-  //   const id = cell.model.id;
-  //   const order = this._cellOrder.get(id);
-
-  //   if (order === undefined) return this._rightTop.widgets.length; // append
-
-  //   let idx = 0;
-  //   for (const w of this._rightTop.widgets) {
-  //     const widgetCell = this._cellItems.find(
-  //       ci => ci.child instanceof CodeCell && (ci.child as CodeCell).outputArea === w
-  //     );
-  //     if (!widgetCell) continue;
-
-  //     const otherId = widgetCell.child.model.id;
-  //     const otherOrder = this._cellOrder.get(otherId);
-  //     if (otherOrder !== undefined && otherOrder < order) idx++;
-  //   }
-  //   return idx;
-  // }
-
-  // private inlineIndexForOrder(order: number, container: Panel): number {
-  //   let idx = 0;
-  //   for (const w of container.widgets) {
-  //     const ci = this._cellItems.find(
-  //       c =>
-  //         c.child === w ||
-  //         (c.child instanceof CodeCell && (c.child as CodeCell).outputArea === w)
-  //     );
-  //     if (!ci) {
-  //       continue;
-  //     }
-  //     const otherOrder = this._cellOrder.get(ci.child.model.id);
-  //     if (otherOrder !== undefined && otherOrder < order) {
-  //       idx++;
-  //     }
-  //   }
-  //   return idx;
-  // }
 
   // ────────────────────────────────────────────────────────────────────────────
   // Model reactions
@@ -545,10 +738,15 @@ export class AppWidget extends Panel {
         if (moved.child instanceof CodeCell) {
           const cell = moved.child as CodeCell;
           const oa = cell.outputArea;
-          if (oa.parent) {
-            Widget.detach(oa);
-          }
 
+          // Reposition OUTPUT area in its target panel
+          if (oa.parent) {
+            if ((oa.parent.layout as any)?.removeWidget) {
+              (oa.parent.layout as any).removeWidget(oa);
+            } else {
+              Widget.detach(oa);
+            }
+          }
           const target = moved.sidebar
             ? this._left
             : moved.bottom
@@ -556,25 +754,36 @@ export class AppWidget extends Panel {
               : this._rightTop;
 
           const order = this._cellOrder.get(cell.model.id);
-          const idx = this.insertionIndexFor(target, order);
-          // const idx = target === this._rightTop
-          //   ? this.indexFor(cell)
-          //   : this.inlineIndexForOrder(
-          //     this._cellOrder.get(cell.model.id)!,
-          //     target
-          //   );
-          target.insertWidget(idx, oa);
+          const outIdx = this.insertionIndexFor(
+            target,
+            order,
+            target === this._rightTop ? 'output' : 'other'
+          );
+          target.insertWidget(outIdx, oa);
+
+          // If showing code inputs, also reposition the *code input* in rightTop
+          if (this._showCode && cell.parent === this._rightTop) {
+            const inOrder = this._cellOrder.get(cell.model.id);
+            const inIdx = this.insertionIndexFor(this._rightTop, inOrder, 'input');
+            if ((this._rightTop.layout as any)?.removeWidget) {
+              (this._rightTop.layout as any).removeWidget(cell);
+            } else if (cell.parent) {
+              Widget.detach(cell);
+            }
+            this._rightTop.insertWidget(inIdx, cell);
+            this.hideInlineOutputWrapper(cell);
+          }
         } else {
           const w = moved.child;
           if (w.parent) {
-            Widget.detach(w);
+            if ((w.parent.layout as any)?.removeWidget) {
+              (w.parent.layout as any).removeWidget(w);
+            } else {
+              Widget.detach(w);
+            }
           }
-          // const idx = this.inlineIndexForOrder(
-          //   this._cellOrder.get(w.model.id)!,
-          //   this._rightTop
-          // );
           const order = this._cellOrder.get(w.model.id);
-          const idx = this.insertionIndexFor(this._rightTop, order);
+          const idx = this.insertionIndexFor(this._rightTop, order, 'other');
           this._rightTop.insertWidget(idx, w);
         }
 
@@ -651,9 +860,10 @@ export class AppWidget extends Panel {
       const oa = cell.outputArea;
 
       if (this._showCode) {
-        this._rightTop.addWidget(cell);
-        const outputEl = cell.node.querySelector<HTMLElement>('.jp-Cell-outputWrapper');
-        if (outputEl) outputEl.style.display = 'none';
+        // ORDERED insert of the code input
+        const inIdx = this.insertionIndexFor(this._rightTop, order, 'input');
+        this._rightTop.insertWidget(inIdx, cell);
+        this.hideInlineOutputWrapper(cell);
       }
 
       const target = item.sidebar
@@ -662,11 +872,15 @@ export class AppWidget extends Panel {
           ? this._rightBottom
           : this._rightTop;
 
-      const idx = this.insertionIndexFor(target, order);
-      target.insertWidget(idx, oa);
+      const outIdx = this.insertionIndexFor(
+        target,
+        order,
+        target === this._rightTop ? 'output' : 'other'
+      );
+      target.insertWidget(outIdx, oa);
     } else {
-      // markdown / raw -> zawsze do rightTop, zgodnie z kolejnością notatnika
-      const idx = this.insertionIndexFor(this._rightTop, order);
+      // markdown / raw -> rightTop, in notebook order
+      const idx = this.insertionIndexFor(this._rightTop, order, 'other');
       this._rightTop.insertWidget(idx, item.child);
     }
   }
