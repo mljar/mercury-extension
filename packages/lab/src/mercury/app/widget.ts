@@ -1088,16 +1088,7 @@ export class AppWidget extends Panel {
     // create the button once and keep a ref
     this._runAllBtn = document.createElement('button');
     this._runAllBtn.className = 'mercury-runall-btn';
-    this._runAllBtn.textContent = 'Run all cells';
-    // simple styling; move to CSS if you prefer
-    Object.assign(this._runAllBtn.style, {
-      width: 'calc(100% - 16px)',
-      margin: '8px',
-      padding: '8px 10px',
-      borderRadius: '6px',
-      border: '1px solid rgba(0,0,0,0.1)',
-      cursor: 'pointer'
-    });
+    this._runAllBtn.textContent = '▶ Run';
     this._runAllBtn.onclick = () => {
       // Runs all code cells top → bottom
       this.reexecuteAllCodeCells();

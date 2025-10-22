@@ -166,3 +166,44 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* --- Left footer container line */
+/* .mercury-left-footer {} */
+.mercury-runall-btn {
+  width: 100%; /* calc(100% - 16px); */
+  margin: 0px;
+  padding: 10px 0px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  background: linear-gradient(180deg, #38d36e 0%, #19b96c 100%);
+  color: #fff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 3px 6px rgba(22, 179, 100, 0.25); /* smaller + softer shadow */
+  transition:
+    transform 100ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease;
+}
+
+.mercury-runall-btn:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 4px 10px rgba(22, 179, 100, 0.3);
+}
+
+.mercury-runall-btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.97);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.06) inset,
+    0 2px 6px rgba(22, 179, 100, 0.25);
+}
+
+.mercury-runall-btn:focus-visible {
+  outline: 2px solid rgba(60, 207, 119, 0.3);
+  outline-offset: 2px;
+}
