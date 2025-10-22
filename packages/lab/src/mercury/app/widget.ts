@@ -58,6 +58,21 @@ function readTitleFromContext(
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
 
+function readAutoRerunFromContext(
+  context: DocumentRegistry.IContext<INotebookModel>
+): boolean {
+  const shared = (context.model as any)?.sharedModel;
+  if (shared?.getMetadata) {
+    const all = shared.getMetadata() ?? {};
+    const v = (all as any)?.mercury?.autoRerun;
+    return v === undefined ? true : !!v; // default true
+  }
+  const md = context.model?.metadata as unknown as IObservableJSON | undefined;
+  const mercury = (md?.get?.('mercury') as any) ?? {};
+  const v = mercury?.autoRerun;
+  return v === undefined ? true : !!v; // default true
+}
+
 function bindShowCodeListener(
   context: DocumentRegistry.IContext<INotebookModel>,
   onChange: () => void
@@ -201,6 +216,10 @@ export class AppWidget extends Panel {
   private _leftHeader!: Panel;   // NEW: fixed header area
   private _leftContent!: Panel;  // NEW: scrollable area for sidebar widgets
   private _sidebarTitle?: string;
+  // autorerun state + UI
+  private _autoRerun = true;
+  private _leftFooter!: Panel;
+  private _runAllBtn!: HTMLButtonElement;
 
   constructor(model: AppModel) {
     super();
@@ -237,6 +256,12 @@ export class AppWidget extends Panel {
       if (newTitle !== this._sidebarTitle) {
         this.setSidebarTitle(newTitle);
       }
+      // refresh autoRerun state + UI
+      const newAuto = readAutoRerunFromContext(this._model.context);
+      if (newAuto !== this._autoRerun) {
+        this._autoRerun = newAuto;
+        this.syncAutoRerunUI();
+      }
     });
 
     // Sidebar toggle buttons
@@ -245,6 +270,10 @@ export class AppWidget extends Panel {
     // Sidebar set title
     this._sidebarTitle = readTitleFromContext(this._model.context);
     this.setSidebarTitle(this._sidebarTitle);
+
+    // Auto Rerun
+    this._autoRerun = readAutoRerunFromContext(this._model.context);
+    this.syncAutoRerunUI();
 
     // When the model is ready, populate all cell widgets
     this._model.ready.connect(() => this.initializeCells());
@@ -560,6 +589,8 @@ export class AppWidget extends Panel {
       this.addWidget(this._split);
       this.installSidebarToggles();
       this.setSidebarTitle(readTitleFromContext(this._model.context));
+      this._autoRerun = readAutoRerunFromContext(this._model.context);
+      this.syncAutoRerunUI();
     } catch (err) {
       console.error('[Mercury][rebuild] failed to recreate panels:', err);
     }
@@ -851,6 +882,11 @@ export class AppWidget extends Panel {
   }
 
   private onWidgetUpdate = (_model: AppModel, update: IWidgetUpdate) => {
+    // respect autorerun
+    if (!this._autoRerun) {
+      return;
+    }
+
     if (this.isDisposed) {
       return;
     }
@@ -1018,6 +1054,14 @@ export class AppWidget extends Panel {
   // Layout helpers
   // ────────────────────────────────────────────────────────────────────────────
 
+  private syncAutoRerunUI(): void {
+    // button visible only when autoRerun is false
+    if (this._runAllBtn) {
+      this._runAllBtn.style.display = this._autoRerun ? 'none' : '';
+    }
+    this.updatePanelVisibility();
+  }
+
   private createSidebar(pageConfig: IPageConfigLike): Panel {
     const left = new Panel();
     left.addClass('mercury-left-panel');
@@ -1038,12 +1082,38 @@ export class AppWidget extends Panel {
     this._leftContent = new Panel();
     this._leftContent.addClass('mercury-left-content');
 
-    // Compose: header first, then content
+    // NEW: Footer panel (bottom) with "Run all" button
+    this._leftFooter = new Panel();
+    this._leftFooter.addClass('mercury-left-footer');
+    // create the button once and keep a ref
+    this._runAllBtn = document.createElement('button');
+    this._runAllBtn.className = 'mercury-runall-btn';
+    this._runAllBtn.textContent = 'Run all cells';
+    // simple styling; move to CSS if you prefer
+    Object.assign(this._runAllBtn.style, {
+      width: 'calc(100% - 16px)',
+      margin: '8px',
+      padding: '8px 10px',
+      borderRadius: '6px',
+      border: '1px solid rgba(0,0,0,0.1)',
+      cursor: 'pointer'
+    });
+    this._runAllBtn.onclick = () => {
+      // Runs all code cells top → bottom
+      this.reexecuteAllCodeCells();
+    };
+    // start hidden; shown only when _autoRerun === false
+    this._runAllBtn.style.display = 'none';
+    this._leftFooter.node.appendChild(this._runAllBtn);
+
+    // Compose: header → content → footer
     left.addWidget(this._leftHeader);
     left.addWidget(this._leftContent);
+    left.addWidget(this._leftFooter);
 
     return left;
   }
+
 
 
   private createRightPanels() {
@@ -1105,9 +1175,10 @@ export class AppWidget extends Panel {
   private updatePanelVisibility(): void {
     if (this.isDisposed) return;
 
-    const leftContentHasOutputs = this.panelWidgets(this._leftContent).some(
-      w => (w as any).model?.length > 0
-    );
+    const leftContentHasOutputs =
+      this.panelWidgets(this._leftContent).some(
+        w => (w as any).model?.length > 0
+      ) || !this._autoRerun;
 
     const bottomHasContent = this.panelWidgets(this._rightBottom).some(
       w => (w as any).model?.length > 0
