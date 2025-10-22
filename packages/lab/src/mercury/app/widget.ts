@@ -43,6 +43,21 @@ function readShowCodeFromContext(
   return typeof v === 'boolean' ? v : undefined;
 }
 
+function readTitleFromContext(
+  context: DocumentRegistry.IContext<INotebookModel>
+): string | undefined {
+  const shared = (context.model as any)?.sharedModel;
+  if (shared?.getMetadata) {
+    const all = shared.getMetadata() ?? {};
+    const v = (all as any)?.mercury?.title;
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+  }
+  const md = context.model?.metadata as unknown as IObservableJSON | undefined;
+  const mercury = (md?.get?.('mercury') as any) ?? {};
+  const v = mercury?.title;
+  return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+}
+
 function bindShowCodeListener(
   context: DocumentRegistry.IContext<INotebookModel>,
   onChange: () => void
@@ -183,6 +198,9 @@ export class AppWidget extends Panel {
   private _cellsChangedConnected = false;
   private _widgetUpdatedConnected = false;
   private _mercuryWidgetAddedConnected = false;
+  private _leftHeader!: Panel;   // NEW: fixed header area
+  private _leftContent!: Panel;  // NEW: scrollable area for sidebar widgets
+  private _sidebarTitle?: string;
 
   constructor(model: AppModel) {
     super();
@@ -214,10 +232,19 @@ export class AppWidget extends Panel {
         this._showCode = v;
         scheduleRebuild();
       }
+      // always refresh the sidebar title (cheap)
+      const newTitle = readTitleFromContext(this._model.context);
+      if (newTitle !== this._sidebarTitle) {
+        this.setSidebarTitle(newTitle);
+      }
     });
 
     // Sidebar toggle buttons
     this.installSidebarToggles();
+
+    // Sidebar set title
+    this._sidebarTitle = readTitleFromContext(this._model.context);
+    this.setSidebarTitle(this._sidebarTitle);
 
     // When the model is ready, populate all cell widgets
     this._model.ready.connect(() => this.initializeCells());
@@ -228,6 +255,21 @@ export class AppWidget extends Panel {
       this._mercuryWidgetAddedConnected = true;
     }
   }
+
+  private setSidebarTitle(title?: string) {
+    const t = (title ?? '').trim();
+    this._sidebarTitle = t || undefined;
+
+    if (!this._leftHeader) return;
+    const titleEl = (this._leftHeader.node as any)._titleEl as HTMLDivElement | undefined;
+    if (titleEl) titleEl.textContent = t || '';
+
+    // Hide the title row if empty (optional)
+    this._leftHeader.node.style.display = t ? '' : 'none';
+
+    this.updatePanelVisibility(); // re-evaluate left visibility
+  }
+
 
   // ────────────────────────────────────────────────────────────────────────────
   // Lifecycle hooks
@@ -341,7 +383,7 @@ export class AppWidget extends Panel {
     // Map to target panel (default to inline/rightTop)
     const target: Panel =
       position === 'sidebar'
-        ? this._left
+        ? this._leftContent
         : position === 'bottom'
           ? this._rightBottom
           : this._rightTop;
@@ -404,7 +446,7 @@ export class AppWidget extends Panel {
         }
 
         if (item.sidebar) {
-          this._left.addWidget(oa);
+          this._leftContent.addWidget(oa);
         } else if (item.bottom) {
           this._rightBottom.addWidget(oa);
         } else {
@@ -517,6 +559,7 @@ export class AppWidget extends Panel {
       this._split = this.createMainSplit(this._left, this._rightSplit);
       this.addWidget(this._split);
       this.installSidebarToggles();
+      this.setSidebarTitle(readTitleFromContext(this._model.context));
     } catch (err) {
       console.error('[Mercury][rebuild] failed to recreate panels:', err);
     }
@@ -748,7 +791,7 @@ export class AppWidget extends Panel {
             }
           }
           const target = moved.sidebar
-            ? this._left
+            ? this._leftContent
             : moved.bottom
               ? this._rightBottom
               : this._rightTop;
@@ -867,7 +910,7 @@ export class AppWidget extends Panel {
       }
 
       const target = item.sidebar
-        ? this._left
+        ? this._leftContent
         : item.bottom
           ? this._rightBottom
           : this._rightTop;
@@ -978,9 +1021,30 @@ export class AppWidget extends Panel {
   private createSidebar(pageConfig: IPageConfigLike): Panel {
     const left = new Panel();
     left.addClass('mercury-left-panel');
-    left.node.style.backgroundColor = pageConfig?.theme?.sidebar_background_color ?? DEFAULT_SIDEBAR_BG;
+    left.node.style.backgroundColor =
+      pageConfig?.theme?.sidebar_background_color ?? DEFAULT_SIDEBAR_BG;
+
+    // Header panel (fixed at top)
+    this._leftHeader = new Panel();
+    this._leftHeader.addClass('mercury-left-header');
+
+    // Title element inside header
+    const titleEl = document.createElement('div');
+    titleEl.className = 'mercury-sidebar-title';
+    (this._leftHeader.node as any)._titleEl = titleEl;
+    this._leftHeader.node.appendChild(titleEl);
+
+    // Content panel (all sidebar widgets go here)
+    this._leftContent = new Panel();
+    this._leftContent.addClass('mercury-left-content');
+
+    // Compose: header first, then content
+    left.addWidget(this._leftHeader);
+    left.addWidget(this._leftContent);
+
     return left;
   }
+
 
   private createRightPanels() {
     const rightTop = new Panel();
@@ -1039,40 +1103,33 @@ export class AppWidget extends Panel {
   }
 
   private updatePanelVisibility(): void {
-    if (this.isDisposed) {
-      return;
-    }
-    const leftHasContent = this.panelWidgets(this._left).some(
+    if (this.isDisposed) return;
+
+    const leftContentHasOutputs = this.panelWidgets(this._leftContent).some(
       w => (w as any).model?.length > 0
     );
+
     const bottomHasContent = this.panelWidgets(this._rightBottom).some(
       w => (w as any).model?.length > 0
     );
 
-    if (!leftHasContent) {
+    if (!leftContentHasOutputs) {
       this._left?.hide();
-      if (this._lastLeftVisible !== false) {
-        this._split?.setRelativeSizes([0, 1]);
-      }
+      if (this._lastLeftVisible !== false) this._split?.setRelativeSizes([0, 1]);
     } else {
       this._left?.show();
-      if (this._lastLeftVisible !== true) {
-        this._split?.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
-      }
+      if (this._lastLeftVisible !== true) this._split?.setRelativeSizes([SIDEBAR_RATIO, MAIN_RATIO]);
     }
-    this._lastLeftVisible = leftHasContent;
+    this._lastLeftVisible = leftContentHasOutputs;
 
     if (!bottomHasContent) {
       this._rightBottom?.hide();
-      if (this._lastBottomVisible !== false) {
-        this._rightSplit?.setRelativeSizes([1, 0]);
-      }
+      if (this._lastBottomVisible !== false) this._rightSplit?.setRelativeSizes([1, 0]);
     } else {
       this._rightBottom?.show();
-      if (this._lastBottomVisible !== true) {
-        this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
-      }
+      if (this._lastBottomVisible !== true) this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
     }
     this._lastBottomVisible = bottomHasContent;
   }
+
 }

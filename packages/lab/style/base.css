@@ -156,3 +156,13 @@
   font-size: 0.8rem;
   color: var(--jp-ui-font-color1);
 }
+
+/* App title */
+.mercury-left-panel .mercury-sidebar-title {
+  font-weight: 600;
+  font-size: 18px;
+  padding: 10px 0px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
