@@ -57,3 +57,21 @@ class WidgetsManager:
     @staticmethod
     def get_widget(code_uid):
         return WidgetsManager.widgets.get(code_uid)
+    
+    @staticmethod
+    def clear():
+        """
+        Reset all ButtonWidget values to False.
+
+        This is useful after a cell re-execution cycle, so that button clicks
+        are consumed and no stale True values remain.
+        """
+        for uid, widget in list(WidgetsManager.widgets.items()):
+            try:
+                # Compare by class name to avoid import loops
+                if type(widget).__name__ == "ButtonWidget":
+                    if getattr(widget, "value", None) is True:
+                        widget.value = False
+                        log.debug(f"Reset ButtonWidget {uid} -> value=False")
+            except Exception as e:
+                log.warning(f"Failed to reset widget {uid}: {e}")

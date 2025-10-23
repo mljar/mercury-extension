@@ -13,7 +13,10 @@ import { Signal } from '@lumino/signaling';
 import { Panel, SplitPanel, Widget } from '@lumino/widgets';
 import { CellItemWidget } from './item/widget';
 import { AppModel, MERCURY_MIMETYPE, type IWidgetUpdate } from './model';
-import { codeCellExecute } from '../../executor/codecell';
+import {
+  codeCellExecute,
+  executeWidgetsManagerClearValues
+} from '../../executor/codecell';
 import {
   getWidgetManager,
   resolveIpyModel,
@@ -922,6 +925,7 @@ export class AppWidget extends Panel {
         }
       }
     }
+    executeWidgetsManagerClearValues(this._model.context.sessionContext);
   };
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -995,6 +999,7 @@ export class AppWidget extends Panel {
           }
         );
       }
+      executeWidgetsManagerClearValues(this._model.context.sessionContext);
     }
   }
 

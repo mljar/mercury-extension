@@ -120,3 +120,44 @@ export async function codeCellExecute(
     throw e;
   }
 }
+
+export async function executeSilently(
+  sessionContext: ISessionContext,
+  code: string
+): Promise<void> {
+  const kernel = sessionContext.session?.kernel;
+  if (!kernel) {
+    return;
+  }
+  const future = kernel.requestExecute({
+    code,
+    silent: true, // <- no iopub execute_input, etc.
+    store_history: false, // <- not added to history
+    stop_on_error: false,
+    allow_stdin: false
+  });
+  try {
+    await future.done;
+  } catch {
+    // swallow — we don't want housekeeping to break UX
+  }
+}
+
+export async function executeWidgetsManagerClearValues(
+  sessionContext: ISessionContext
+): Promise<void> {
+  // Try a couple of import paths, silently
+  const clearCode = `
+try:
+    from mercury.widgets.manager import WidgetsManager
+except Exception:
+    try:
+        from widgets.manager import WidgetsManager
+    except Exception:
+        WidgetsManager = None
+if WidgetsManager is not None:
+    WidgetsManager.clear()
+`;
+
+  return executeSilently(sessionContext, clearCode);
+}
