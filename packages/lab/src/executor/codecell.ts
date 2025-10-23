@@ -95,11 +95,6 @@ export async function codeCellExecute(
       timingInfo['shell.execute_reply'] = finished || new Date().toISOString();
       model.setMetadata('execution', timingInfo);
     }
-    // console.log(
-    //   'Execution finished for cell:',
-    //   model.id,
-    //   '=> check outputs for MERCURY_MIMETYPE and move widget'
-    // );
 
     return msg;
   } catch (e) {

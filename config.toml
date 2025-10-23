@@ -19,6 +19,7 @@ link_underline = true
 
 # Colors
 primary_color = "#007bff"
+secondary_color = "#6c757d"
 background_color = "#ffffff"
 sidebar_background_color = "eaeaea"
 # "f8f9fa"

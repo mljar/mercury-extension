@@ -3,6 +3,7 @@ import traitlets
 from IPython.display import display
 
 from .manager import WidgetsManager, MERCURY_MIMETYPE
+from .theme import THEME
 
 class UploadedFile:
     def __init__(self, name, value):
@@ -173,7 +174,7 @@ class FileWidget(anywidget.AnyWidget):
 
         .mljar-file-dropzone {
           border: 2px dashed #bbb;
-          border-radius: 14px;
+          border-radius: 12px;
           padding: 18px;
           width: 100%;
           max-width: 100%;
@@ -189,9 +190,11 @@ class FileWidget(anywidget.AnyWidget):
         .mljar-file-drop-hint { font-size: 0.93em; color: #666; margin-top: 3px; }
 
         .mljar-file-browse-btn {
-          background: #fff; color: #00b1e4;
-          border: 2px solid #00b1e4;
-          border-radius: 10px !important;
+          background: #fff; 
+          """ + f"color: {THEME.get('primary_color', '#007bff')};" + """
+
+          border: 2px solid """ + f"{THEME.get('primary_color', '#007bff')}" + """;
+          border-radius: """ + f"{THEME.get('border_radius', '8px')}" + """ !important;
           padding: 6px 18px;
           font-size: 1.08em; font-weight: 600;
           cursor: pointer;
@@ -199,7 +202,7 @@ class FileWidget(anywidget.AnyWidget):
           transition: background 0.2s, color 0.2s, border-color 0.2s;
           position: absolute; right: 18px; bottom: 18px;
         }
-        .mljar-file-browse-btn:hover { background: #00b1e4; color: #fff; }
+        .mljar-file-browse-btn:hover { background: """ + f"{THEME.get('primary_color', '#007bff')}" + """; color: #fff; }
 
         .mljar-file-list {
           list-style: none; margin: 0; padding: 0;
