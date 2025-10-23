@@ -128,7 +128,7 @@
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: 4px;
-  margin-right: 8px;
+  margin-right: 4px;
   font: inherit;
   color: var(--jp-ui-font-color1);
   background: var(--jp-layout-color1);
@@ -141,7 +141,8 @@
   border: 1px solid var(--jp-border-color2);
   border-radius: 4px;
   padding: 2px 6px;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   font: inherit;
   color: var(--jp-ui-font-color1);
   background: var(--jp-layout-color1);
@@ -152,7 +153,8 @@
 .mercury-toolbar-checkbox {
   display: inline-flex;
   align-items: center;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   font-size: 0.8rem;
   color: var(--jp-ui-font-color1);
 }

@@ -623,13 +623,19 @@ export class AppModel {
   /** Safely parse and validate Mercury output */
   private _readMercuryPayload(output: IOutputModel): IMercuryPayload | null {
     const data = output.data ?? {};
-    if (!(MERCURY_MIMETYPE in data)) {
+    const raw = data[MERCURY_MIMETYPE];
+
+    if (!raw) {
       return null;
     }
 
     try {
-      const raw = data[MERCURY_MIMETYPE] as unknown as string;
-      const parsed = JSON.parse(raw) as unknown;
+      // Handle both serialized JSON and direct object
+      const parsed =
+        typeof raw === 'string'
+          ? JSON.parse(raw)
+          : (raw as Record<string, unknown>);
+
       if (typeof parsed !== 'object' || parsed === null) {
         return null;
       }
@@ -643,12 +649,14 @@ export class AppModel {
             : undefined,
         widget: typeof widget === 'string' ? widget : undefined
       };
+
       return payload;
     } catch (err) {
       console.warn('Failed to parse MERCURY payload', err);
       return null;
     }
   }
+
 
   /*************************************************
    * Internal: Notebook content change

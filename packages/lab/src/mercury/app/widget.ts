@@ -400,13 +400,29 @@ export class AppWidget extends Panel {
       for (let i = 0; i < oa.model.length; i++) {
         const output = oa.model.get(i);
         const data = output.data as Record<string, unknown> | undefined;
+
         if (data && MERCURY_MIMETYPE in data) {
+          const raw = data[MERCURY_MIMETYPE];
+          let meta: any = null;
+
           try {
-            const meta = JSON.parse(String(data[MERCURY_MIMETYPE]));
-            position = meta.position || 'sidebar';
+            if (typeof raw === 'string') {
+              // Old behavior: MIME payload as JSON string
+              meta = JSON.parse(raw);
+            } else if (typeof raw === 'object' && raw !== null) {
+              // New behavior: MIME payload as object
+              meta = raw;
+            }
+
+            if (meta && typeof meta.position === 'string') {
+              position = meta.position;
+            } else {
+              position = 'sidebar';
+            }
           } catch {
             position = 'sidebar';
           }
+
           break;
         }
       }
@@ -644,14 +660,28 @@ export class AppWidget extends Panel {
           const data = output.data as Record<string, unknown> | undefined;
           if (data && MERCURY_MIMETYPE in data) {
             try {
-              const meta = JSON.parse(String(data[MERCURY_MIMETYPE]));
-              const pos = meta.position || 'sidebar';
+              const raw = data[MERCURY_MIMETYPE];
+              let meta: any;
+
+              if (typeof raw === 'string') {
+                // Old behavior: JSON as string
+                meta = JSON.parse(raw);
+              } else if (typeof raw === 'object' && raw !== null) {
+                // New behavior: JSON as object
+                meta = raw;
+              } else {
+                meta = {};
+              }
+
+              const pos =
+                typeof meta.position === 'string' ? meta.position : 'sidebar';
               sidebar = pos === 'sidebar';
               bottom = pos === 'bottom';
             } catch {
               sidebar = true;
               bottom = false;
             }
+
             break;
           }
         }

@@ -201,9 +201,7 @@ export default { render };
                 "position": self.position
             }
             import json
-            data[0][MERCURY_MIMETYPE] = json.dumps(mercury_mime, indent=4)
-            #if "text/plain" in data:
-            #    del data["text/plain"]
+            data[0][MERCURY_MIMETYPE] = mercury_mime
 
         return data
 
