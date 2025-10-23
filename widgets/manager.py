@@ -62,9 +62,9 @@ class WidgetsManager:
     def clear():
         """
         Reset all ButtonWidget values to False.
+        Reset ChatInputWidget value to empty string.
 
-        This is useful after a cell re-execution cycle, so that button clicks
-        are consumed and no stale True values remain.
+        This is useful after a cell re-execution cycle.
         """
         for uid, widget in list(WidgetsManager.widgets.items()):
             try:
@@ -72,6 +72,8 @@ class WidgetsManager:
                 if type(widget).__name__ == "ButtonWidget":
                     if getattr(widget, "value", None) is True:
                         widget.value = False
-                        log.debug(f"Reset ButtonWidget {uid} -> value=False")
+                elif type(widget).__name__ == "ChatInputWidget":
+                    if getattr(widget, "value", '') != '':
+                        widget.value = ''
             except Exception as e:
                 log.warning(f"Failed to reset widget {uid}: {e}")
