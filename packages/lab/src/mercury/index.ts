@@ -56,7 +56,9 @@ export const mercury: JupyterFrontEndPlugin<IMercuryTracker> = {
       notebookConfig: StaticNotebook.defaultNotebookConfig,
       mimeTypeService: editorServices.mimeTypeService,
       editorFactoryService: editorServices.factoryService,
-      notebookPanel: null
+      notebookPanel: null,
+      icon: partyIcon,
+      iconLabel: 'Mercury'
     });
 
     factory.widgetCreated.connect((sender, widget) => {
