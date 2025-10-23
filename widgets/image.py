@@ -17,6 +17,7 @@ def _ensure_global_image_styles():
         width: 100%;
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 6px;
         border: 1px solid {THEME.get('border_color', '#ddd')};
         border-radius: {THEME.get('border_radius', '8px')};
@@ -37,17 +38,16 @@ def _ensure_global_image_styles():
         display: block;
         max-width: 100%;
         height: auto;
-        object-fit: contain;
       }}
 
       .mljar-image-caption {{
         font-family: {THEME.get('font_family', 'Arial, sans-serif')};
-        font-size: {THEME.get('font_size', '14px')};
-        color: {THEME.get('muted_text_color', THEME.get('text_color', '#222'))};
-        line-height: 1.3;
+        font-size: 0.9em;
+        color: {THEME.get('muted_text_color', THEME.get('text_color', '#444'))};
+        font-style: italic;
+        text-align: center;
       }}
 
-      /* neutralize default ipywidgets margins to prevent x-scroll */
       .mljar-image-card :is(.jupyter-widgets, .widget-box, .widget-hbox, .widget-vbox) {{
         margin-left: 0 !important;
         margin-right: 0 !important;
@@ -63,7 +63,6 @@ def _path_to_data_uri(path: str) -> str:
     """Read local file and return a data: URI with guessed MIME type."""
     mime, _ = mimetypes.guess_type(path)
     if not mime:
-        # fallback to a safe default
         mime = "image/png"
     with open(path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode("ascii")
@@ -76,31 +75,31 @@ def _img_src(url_or_path: str) -> str:
         return url_or_path
     if isinstance(url_or_path, str) and os.path.exists(url_or_path):
         return _path_to_data_uri(url_or_path)
-    # if it's neither, just return as-is; browser will try to resolve (or show broken-img icon)
     return url_or_path
 
 
 # ---------- Public API ----------
-def ImageCard(src: str, caption: str = "", fit: str = "contain",
+def ImageCard(src: str, caption: str = "",
               width: str = "100%", height: str | None = None,
-              rounded: bool = True, key: str = "") -> widgets.VBox:
+              rounded: bool = True, show_border: bool = True,
+              key: str = "") -> widgets.VBox:
     """
-    Display an image from URL or local file with a caption.
+    Display an image from URL or local file with a caption (centered, italic).
 
     Parameters
     ----------
     src : str
         URL (http/https) or local file path.
     caption : str
-        Optional caption text shown below the image.
-    fit : str
-        CSS object-fit value for the image: 'contain', 'cover', 'fill', 'none', 'scale-down'.
+        Optional caption text shown below the image (centered, italic).
     width : str
         CSS width for the outer card (e.g. '100%', '400px').
     height : str | None
-        Fixed CSS height for the image area (e.g. '240px'). If None, image is auto height.
+        Fixed CSS height for the image area (e.g. '240px'). If None, image auto adjusts.
     rounded : bool
         Apply theme border radius to the image area.
+    show_border : bool
+        Show or hide the border around the image card.
     key : str
         Stable cache key to reuse the same widget instance.
 
@@ -118,27 +117,30 @@ def ImageCard(src: str, caption: str = "", fit: str = "contain",
         display(card)
         return card
 
-    # Build <img> tag
     img_src = _img_src(src)
-    style_parts = [f"object-fit:{fit};", "width:100%;", "height:auto;"]
+    style_parts = ["width:100%;", "height:auto;"]
     if height:
-        # if fixed height desired, let object-fit control cropping/containment
-        style_parts = [f"object-fit:{fit};", "width:100%;", f"height:{height};"]
+        style_parts = ["width:100%;", f"height:{height};", "object-fit:contain;"]
+
     img_html = f'<img src="{escape(img_src, quote=True)}" alt="image" style={"".join(style_parts)} />'
 
-    # Optional rounded override
-    img_wrap = widgets.HTML(
-        value=f'<div class="mljar-image-wrap" style="{"border-radius:"+THEME.get("border_radius","8px")+";" if rounded else "border-radius:0;"}">{img_html}</div>'
-    )
+    # Optional rounded style
+    wrap_style = f"border-radius:{THEME.get('border_radius','8px')};" if rounded else "border-radius:0;"
+    img_wrap = widgets.HTML(value=f'<div class="mljar-image-wrap" style="{wrap_style}">{img_html}</div>')
 
     # Caption
-    cap_html = widgets.HTML(
-        value=f'<div class="mljar-image-caption">{escape(caption)}</div>' if caption else ""
+    cap_html = widgets.HTML(value=f'<div class="mljar-image-caption">{escape(caption)}</div>' if caption else "")
+
+    # Card layout
+    border_style = f"1px solid {THEME.get('border_color', '#ddd')}" if show_border else "none"
+    card_layout = widgets.Layout(
+        width=width,
+        border=border_style,
+        border_radius=THEME.get('border_radius', '8px'),
+        padding="8px"
     )
 
-    # Card
-    children = [img_wrap] + ([cap_html] if caption else [])
-    card = widgets.VBox(children, layout=widgets.Layout(width=width))
+    card = widgets.VBox([img_wrap, cap_html] if caption else [img_wrap], layout=card_layout)
     card.add_class("mljar-image-card")
 
     display(card)
