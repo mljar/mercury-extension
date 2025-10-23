@@ -18,7 +18,6 @@ function inJupyterLab(): boolean {
     (window as any).jupyterlab ||
     (window as any).jupyterapp
   );
-  console.log('[Mercury][env] inJupyterLab =', res);
   return res;
 }
 
@@ -44,13 +43,11 @@ function readMercuryMeta(
   if (shared?.getMetadata) {
     const meta = shared.getMetadata() ?? {};
     const val = (meta as any).mercury ?? {};
-    console.log('[Mercury][meta][read] (sharedModel) mercury =', val);
     return val && typeof val === 'object' ? val : {};
   }
   const md = context.model?.metadata as unknown as IObservableJSON | undefined;
   const hasGet = typeof md?.get === 'function';
   const val = hasGet ? (md!.get('mercury') as any) : {};
-  console.log('[Mercury][meta][read] (observable) mercury =', val);
   return val && typeof val === 'object' ? val : {};
 }
 
@@ -65,14 +62,6 @@ function patchMercuryMeta(
     const beforeAll = shared.getMetadata() ?? {};
     const prev = (beforeAll as any).mercury ?? {};
     const nextAll = { ...beforeAll, mercury: { ...prev, ...patch } };
-    console.log(
-      '[Mercury][meta][patch] (sharedModel) BEFORE =',
-      beforeAll,
-      'PATCH =',
-      patch,
-      'AFTER =',
-      nextAll
-    );
     shared.setMetadata(nextAll);
     return;
   }
@@ -80,9 +69,7 @@ function patchMercuryMeta(
   // Fallback: legacy observable metadata (JupyterLab 3.x)
   const md = context.model?.metadata as unknown as IObservableJSON | undefined;
   const hasSet = typeof md?.set === 'function';
-  console.log('[Mercury][meta][patch] (observable) hasSet =', hasSet, 'PATCH =', patch);
   if (!hasSet) {
-    console.warn('[Mercury][meta] no available writer (neither sharedModel nor metadata.set).');
     return;
   }
   // @ts-ignore toJSON exists at runtime
@@ -92,7 +79,6 @@ function patchMercuryMeta(
   md!.set('mercury', next);
   // @ts-ignore
   const afterAll = (md!.toJSON ? md!.toJSON() : {}) as Record<string, any>;
-  console.log('[Mercury][meta][patch] (observable) BEFORE =', beforeAll, 'AFTER =', afterAll);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -110,10 +96,8 @@ export class MercuryWidget extends DocumentWidget<MercuryPanel, INotebookModel> 
 
     if (inJupyterLab()) {
       this.toolbar.addClass('jp-NotebookPanel-toolbar');
-      console.log('[Mercury][toolbar] creating Notebook-style toolbar');
 
       const scheduleSave = debounce(() => {
-        console.log('[Mercury][save] debounced save → context.save()');
         void context.save();
       }, 1000);
 
