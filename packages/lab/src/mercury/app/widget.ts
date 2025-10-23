@@ -103,9 +103,9 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms = 80) {
  * Default layout ratios and colors.
  */
 const SIDEBAR_RATIO = 0.2; // 20% width
-const MAIN_RATIO = 1 - SIDEBAR_RATIO; // 80% width
+const MAIN_RATIO = 0.8; // 80% width
 const TOP_RATIO = 0.85; // 85% height
-const BOTTOM_RATIO = 1 - TOP_RATIO; // 15% height
+const BOTTOM_RATIO = 0.15; // 15% height
 const DEFAULT_SIDEBAR_BG = '#f8f9fa';
 
 /**
@@ -244,6 +244,8 @@ export class AppWidget extends Panel {
     this._rightBottom = rightBottom;
     this._split = this.createMainSplit(this._left, this._rightSplit);
 
+    this._split.spacing = 0;
+
     // Add root container to this widget
     this.addWidget(this._split);
 
@@ -286,6 +288,11 @@ export class AppWidget extends Panel {
       this._model.mercuryWidgetAdded.connect(this._mercuryWidgetAddedHandler);
       this._mercuryWidgetAddedConnected = true;
     }
+
+    // style for bottom panel
+    this._rightBottom.node.style.backgroundColor =
+      pageConfig?.theme?.sidebar_background_color ?? DEFAULT_SIDEBAR_BG;
+
   }
 
   private setSidebarTitle(title?: string) {
@@ -1221,12 +1228,51 @@ export class AppWidget extends Panel {
 
     if (!bottomHasContent) {
       this._rightBottom?.hide();
-      if (this._lastBottomVisible !== false) this._rightSplit?.setRelativeSizes([1, 0]);
+      if (this._lastBottomVisible !== false) {
+        this._rightSplit?.setRelativeSizes([1, 0]);
+      }
     } else {
       this._rightBottom?.show();
-      if (this._lastBottomVisible !== true) this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+      if (this._lastBottomVisible !== true) {
+        this.adjustBottomHeight();
+        //this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
+        // Measure after layout settles
+        requestAnimationFrame(() => this.adjustBottomHeight());
+      }
     }
     this._lastBottomVisible = bottomHasContent;
   }
 
+  private static readonly MAX_BOTTOM_PX = 280;
+
+  private adjustBottomHeight(maxPx = AppWidget.MAX_BOTTOM_PX): void {
+    if (!this._rightSplit || !this._rightBottom) return;
+
+    // If the split (or bottom) isn’t laid out yet, try again next frame
+    const totalH = this._rightSplit.node.clientHeight || 0;
+    if (totalH === 0) {
+      requestAnimationFrame(() => this.adjustBottomHeight(maxPx));
+      return;
+    }
+
+    // Needed pixels for the bottom content
+    const neededPx = Math.min(
+      maxPx,
+      Math.max(0, this._rightBottom.node.scrollHeight)
+    );
+
+    // Convert to ratios for SplitPanel
+    const bottomRatio = Math.max(0, Math.min(neededPx / totalH, 1) * 1.1);
+    //const topRatio = 1 - bottomRatio;
+
+    // If the content is tiny, keep a thin but visible rail (e.g., 8px)
+    const minBottomPx = 8;
+    const minBottomRatio = Math.min(minBottomPx / totalH, 0.05); // up to 5%
+    const finalBottom = bottomRatio > 0 ? Math.max(bottomRatio, minBottomRatio) : 0;
+
+    this._rightSplit.setRelativeSizes([1 - finalBottom, finalBottom]);
+
+    // Ask Lumino to re-flow just in case (guards against rare race conditions)
+    (this._rightSplit as any).update?.();
+  }
 }

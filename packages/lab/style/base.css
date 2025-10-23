@@ -65,6 +65,19 @@
   display: block;
 }
 
+.mercury-right-top-panel {
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.mercury-right-bottom-panel {
+  border-top: 1px solid var(--jp-border-color2);
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
 /* Hide output prompt in sidebar */
 .mercury-left-panel .jp-OutputArea-prompt,
 .mercury-left-panel .jp-OutputArea-promptOverlay {
@@ -173,6 +186,7 @@
 .mercury-runall-btn {
   width: 100%; /* calc(100% - 16px); */
   margin: 0px;
+  margin-top: 5px;
   padding: 10px 0px;
   border: 0;
   border-radius: 10px;
