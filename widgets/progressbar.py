@@ -2,7 +2,7 @@ import ipywidgets as widgets
 import traitlets
 from IPython.display import display
 
-from .manager import WidgetsManager
+from .manager import WidgetsManager, MERCURY_MIMETYPE
 from .theme import THEME
 
 
@@ -28,7 +28,7 @@ def _ensure_global_progress_styles():
         gap: 0px;
         margin-top: 0px !important;
         margin-bottom: 0px !important;
-        paddding-top: 0px !important;
+        padding-top: 0px !important;      /* fixed: paddding-top -> padding-top */
         padding-bottom: 0px !important;
         line-height: 0.7; 
       }}
@@ -56,7 +56,6 @@ def _ensure_global_progress_styles():
         will-change: width;
       }}
 
-      /* Indeterminate: animated stripes moving left->right */
       .mljar-progress-fill.is-indeterminate {{
         width: 30%;
         background: repeating-linear-gradient(
@@ -73,7 +72,6 @@ def _ensure_global_progress_styles():
         100% {{ transform: translateX(300%); }}
       }}
 
-      /* Avoid layout overflow from default ipywidgets margins */
       .mljar-progress :is(.jupyter-widgets, .widget-box, .widget-hbox, .widget-vbox) {{
         margin-left: 0 !important;
         margin-right: 0 !important;
@@ -83,6 +81,32 @@ def _ensure_global_progress_styles():
     </style>
     """
     display(widgets.HTML(css))
+
+
+# ---------- Container that carries "position" and emits Mercury MIME ----------
+class _ProgressVBox(widgets.VBox):
+    position = traitlets.Enum(
+        values=["sidebar", "inline", "bottom"],
+        default_value="inline"
+    ).tag(sync=True)
+
+    def _repr_mimebundle_(self, **kwargs):
+        data = super()._repr_mimebundle_(**kwargs)
+        # ipywidgets usually returns a dict; handle both dict and (rare) tuple(data, metadata)
+        if isinstance(data, dict):
+            data[MERCURY_MIMETYPE] = {
+                "widget": type(self).__qualname__,
+                "model_id": getattr(self, "model_id", None),
+                "position": self.position,
+            }
+        elif isinstance(data, tuple) and len(data) >= 1 and isinstance(data[0], dict):
+            bundle = data[0]
+            bundle[MERCURY_MIMETYPE] = {
+                "widget": type(self).__qualname__,
+                "model_id": getattr(self, "model_id", None),
+                "position": self.position,
+            }
+        return data
 
 
 # ---------- Handle returned to the caller ----------
@@ -132,8 +156,9 @@ class ProgressHandle:
 
 
 # ---------- Public factory ----------
-def Progress(label: str = "", value: float = 0, min: float = 0, max: float = 100,
-             show_percent: bool = True, indeterminate: bool = False, key: str = "") -> ProgressHandle:
+def Progressbar(label: str = "", value: float = 0, min: float = 0, max: float = 100,
+                show_percent: bool = True, indeterminate: bool = False,
+                key: str = "", position: str = "inline") -> ProgressHandle:
     """
     Create a theme-aware progress bar.
 
@@ -151,6 +176,8 @@ def Progress(label: str = "", value: float = 0, min: float = 0, max: float = 100
         Start in indeterminate (animated) mode.
     key : str
         Stable cache key for reuse.
+    position : {"sidebar","inline","bottom"}
+        Placement hint for Mercury/JupyterLab integration. Defaults to "inline".
 
     Returns
     -------
@@ -191,9 +218,10 @@ def Progress(label: str = "", value: float = 0, min: float = 0, max: float = 100
     track_w = widgets.Box([fill_w], layout=widgets.Layout(width="100%", height="12px"))
     track_w.add_class("mljar-progress-track")
 
-    # Container
+    # Container with position support
     parts = [label_row, track_w] if (label or show_percent) else [track_w]
-    container = widgets.VBox(parts, layout=widgets.Layout(width="100%"))
+    container = _ProgressVBox(parts, layout=widgets.Layout(width="100%"))
+    container.position = position
     container.add_class("mljar-progress")
 
     # Compose handle

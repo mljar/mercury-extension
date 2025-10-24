@@ -18,6 +18,8 @@ import { IMercuryTracker, MercuryWidget } from './widget';
 
 import { OpenMercuryButton } from './toolbar/button';
 
+import { partyIcon } from '../icons';
+
 export * from './factory';
 export * from './widget';
 
@@ -54,10 +56,15 @@ export const mercury: JupyterFrontEndPlugin<IMercuryTracker> = {
       notebookConfig: StaticNotebook.defaultNotebookConfig,
       mimeTypeService: editorServices.mimeTypeService,
       editorFactoryService: editorServices.factoryService,
-      notebookPanel: null
+      notebookPanel: null,
+      icon: partyIcon,
+      iconLabel: 'Mercury'
     });
 
     factory.widgetCreated.connect((sender, widget) => {
+      widget.title.icon = partyIcon;
+      widget.title.iconLabel = 'Mercury';
+
       widget.context.pathChanged.connect(() => {
         void tracker.save(widget);
       });

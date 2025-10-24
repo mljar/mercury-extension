@@ -139,7 +139,7 @@ class JSONViewer(anywidget.AnyWidget):
                 "model_id": self.model_id,
                 "position": self.position
             }
-            data[0][MERCURY_MIMETYPE] = json.dumps(mercury_mime, indent=4)
+            data[0][MERCURY_MIMETYPE] = mercury_mime
             if "text/plain" in data[0]:
                 del data[0]["text/plain"]
         return data

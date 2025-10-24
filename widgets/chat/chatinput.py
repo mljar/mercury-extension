@@ -195,5 +195,5 @@ class ChatInputWidget(anywidget.AnyWidget):
                 "position": self.position,
             }
             import json
-            data[0][MERCURY_MIMETYPE] = json.dumps(mercury_mime, indent=4)
+            data[0][MERCURY_MIMETYPE] = mercury_mime
         return data

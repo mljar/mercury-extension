@@ -65,6 +65,19 @@
   display: block;
 }
 
+.mercury-right-top-panel {
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.mercury-right-bottom-panel {
+  border-top: 1px solid var(--jp-border-color2);
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
 /* Hide output prompt in sidebar */
 .mercury-left-panel .jp-OutputArea-prompt,
 .mercury-left-panel .jp-OutputArea-promptOverlay {
@@ -128,7 +141,7 @@
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: 4px;
-  margin-right: 8px;
+  margin-right: 4px;
   font: inherit;
   color: var(--jp-ui-font-color1);
   background: var(--jp-layout-color1);
@@ -141,7 +154,8 @@
   border: 1px solid var(--jp-border-color2);
   border-radius: 4px;
   padding: 2px 6px;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   font: inherit;
   color: var(--jp-ui-font-color1);
   background: var(--jp-layout-color1);
@@ -152,7 +166,8 @@
 .mercury-toolbar-checkbox {
   display: inline-flex;
   align-items: center;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   font-size: 0.8rem;
   color: var(--jp-ui-font-color1);
 }
@@ -171,6 +186,7 @@
 .mercury-runall-btn {
   width: 100%; /* calc(100% - 16px); */
   margin: 0px;
+  margin-top: 5px;
   padding: 10px 0px;
   border: 0;
   border-radius: 10px;
