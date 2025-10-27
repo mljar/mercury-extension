@@ -127,7 +127,7 @@ export class BusyIndicator {
   z-index: 5;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: var(--mbi-pill-bg);
   border: 1px solid var(--mbi-pill-border);
