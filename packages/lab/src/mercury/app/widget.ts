@@ -30,6 +30,7 @@ import { OutputStamper } from './outputStamper';
 import type { INotebookModel } from '@jupyterlab/notebook';
 import type { DocumentRegistry } from '@jupyterlab/docregistry';
 import type { IObservableJSON } from '@jupyterlab/observables';
+import { BusyIndicator } from './busyIndicator';
 
 function readShowCodeFromContext(
   context: DocumentRegistry.IContext<INotebookModel>
@@ -223,6 +224,7 @@ export class AppWidget extends Panel {
   private _autoRerun = true;
   private _leftFooter!: Panel;
   private _runAllBtn!: HTMLButtonElement;
+  private _busy?: BusyIndicator;
 
   constructor(model: AppModel) {
     super();
@@ -245,6 +247,11 @@ export class AppWidget extends Panel {
     this._split = this.createMainSplit(this._left, this._rightSplit);
 
     this._split.spacing = 0;
+
+    this._busy = new BusyIndicator({
+      container: this._rightTop.node,
+      position: 'top-right'
+    });
 
     // Add root container to this widget
     this.addWidget(this._split);
@@ -293,6 +300,16 @@ export class AppWidget extends Panel {
     this._rightBottom.node.style.backgroundColor =
       pageConfig?.theme?.sidebar_background_color ?? DEFAULT_SIDEBAR_BG;
 
+    this._model.context.sessionContext.statusChanged.connect((_, status) => {
+      if (status === 'busy') this._busy?.begin();
+      else if (status === 'idle') this._busy?.finish();
+    });
+    // Wire the button to interrupt the kernel
+    this._busy.element.addEventListener('mbi:interrupt', () => {
+      try {
+        void this._model.context.sessionContext.session?.kernel?.interrupt();
+      } catch { }
+    });
   }
 
   private setSidebarTitle(title?: string) {
@@ -375,6 +392,7 @@ export class AppWidget extends Panel {
     this._split = null as any;
 
     Signal.clearData(this);
+    try { this._busy?.dispose(); } catch { }
     super.dispose();
   }
 

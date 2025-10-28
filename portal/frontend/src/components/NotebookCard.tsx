@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Notebook } from '@/types/notebook';
@@ -12,6 +14,7 @@ const NotebookCard = ({ notebook }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       await API.post(`notebooks/${notebook.id}/launch/`);
@@ -25,44 +28,55 @@ const NotebookCard = ({ notebook }: Props) => {
 
   return (
     <div
-      className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-200 p-6 flex flex-col items-center text-center cursor-pointer transition-all duration-200 min-h-[220px] relative hover:border-gray-300"
-      onClick={loading ? undefined : handleClick}
+      onClick={handleClick}
+      className={`
+        relative cursor-pointer select-none
+        rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur
+        shadow-[0_1px_2px_rgba(0,0,0,0.03)]
+        hover:shadow-[0_6px_20px_rgba(0,0,0,0.05)]
+        hover:border-gray-300 transition-all duration-200 ease-out
+        flex flex-col items-center justify-start text-center p-6
+        min-h-[220px]
+      `}
     >
+      {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-xl z-10">
-          <div className="animate-spin h-6 w-6 border-2 border-t-transparent border-blue-500 rounded-full" />
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
         </div>
       )}
 
-      {/* Icon */}
+      {/* Thumbnail (text icon only) */}
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 shadow-sm"
+        className={`
+          flex items-center justify-center mb-4
+          h-12 w-12 rounded-xl
+          shadow-[0_1px_2px_rgba(0,0,0,0.04)]
+          text-2xl font-medium
+        `}
         style={{
-          background: notebook.thumbnail_bg || '#6b7280',
-          color: notebook.thumbnail_text_color || '#fff'
+          backgroundColor: '#f8fafc', // soft neutral background
+          color: notebook.thumbnail_text_color || '#0f172a',
         }}
       >
-        {notebook.thumbnail_image ? (
-          <img
-            src={notebook.thumbnail_image}
-            alt={notebook.name}
-            className="w-full h-full object-cover rounded-xl"
-          />
-        ) : (
-          notebook.thumbnail_text || '📒'
-        )}
+        {notebook.thumbnail_text || '📒'}
       </div>
 
       {/* Title */}
-      <h2 className="font-semibold text-lg text-gray-900 mb-2 leading-tight">
+      <h2 className="mb-1 text-base font-semibold text-gray-900 tracking-tight">
         {notebook.name}
       </h2>
 
       {/* Description */}
-      <p className="text-sm text-gray-600 leading-relaxed">
-        {notebook.description}
-      </p>
+      {notebook.description ? (
+        <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
+          {notebook.description}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-400 italic">No description</p>
+      )}
     </div>
   );
 };
+
 export default NotebookCard;

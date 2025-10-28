@@ -14,6 +14,8 @@ export {
   MercuryWidgetFactory
 } from './mercury';
 
+export { AppWidget } from './mercury/app/widget';
+
 const plugins: JupyterFrontEndPlugin<any>[] = [
   mercury,
   widgets,

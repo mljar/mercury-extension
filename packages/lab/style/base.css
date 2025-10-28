@@ -27,7 +27,7 @@
     left 0.2s,
     opacity 0.2s;
 
-  width: 25px;
+  width: 21px;
   height: 25px;
 
   border-radius: 10px 0px 0px 10px !important;
@@ -39,7 +39,7 @@
 }
 
 .mercury-sidebar-expand {
-  left: 0;
+  left: -4px;
   top: 5px;
   background: #0d6efd;
   color: #fff;
