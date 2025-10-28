@@ -4,21 +4,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import API from '@/lib/api';
 
-type Notebook = {
-  id?: string | number;
-  slug?: string;
-  title?: string;
-  name?: string;
-  filename?: string;
-  description?: string;
+import { Notebook } from '@/types/notebook';
 
-  // thumbnail fields (match NotebookCard)
-  thumbnail_bg?: string;
-  thumbnail_text_color?: string;
-  thumbnail_text?: string;
+type HeaderProps = {
+  /** If true, inner content spans full width. Default keeps max-w-4xl centered. */
+  fullWidth?: boolean;
 };
 
-export default function Header() {
+
+export default function Header({ fullWidth = false}: HeaderProps) {
   // data
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,7 +112,7 @@ export default function Header() {
         px-3 sm:px-4 py-1.5
       "
     >
-      <div className="mx-auto max-w-4xl flex items-center justify-between">
+      <div className={`mx-auto ${fullWidth? 'w-full' : 'max-w-4xl'} flex items-center justify-between`}>
         {/* Brand (keep understated like Stripe) */}
         <Link href="/" className="inline-flex items-center gap-2">
           <span
