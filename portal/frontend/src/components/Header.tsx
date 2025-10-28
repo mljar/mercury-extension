@@ -4,15 +4,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import API from '@/lib/api';
 
-type Notebook = {
-  id?: string | number;
-  slug?: string;
-  title?: string;
-  name?: string;
-  filename?: string;
+import { Notebook } from '@/types/notebook';
+
+type HeaderProps = {
+  /** If true, inner content spans full width. Default keeps max-w-4xl centered. */
+  fullWidth?: boolean;
 };
 
-export default function Header() {
+
+export default function Header({ fullWidth = false}: HeaderProps) {
   // data
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,8 @@ export default function Header() {
     (nb.id != null ? String(nb.id) : 'Untitled');
 
   const hrefOf = (nb: Notebook) => {
-    const idPart = nb.slug ?? nb.id ?? nb.title ?? nb.name ?? nb.filename ?? 'unknown';
+    const idPart =
+      nb.slug ?? nb.id ?? nb.title ?? nb.name ?? nb.filename ?? 'unknown';
     return `/notebooks/${encodeURIComponent(String(idPart))}`;
   };
 
@@ -49,12 +50,14 @@ export default function Header() {
         const list: Notebook[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.results)
-          ? data.results
-          : [];
+            ? data.results
+            : [];
         setNotebooks(list);
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.response?.data?.detail || e?.message || 'Failed to load notebooks.');
+        setError(
+          e?.response?.data?.detail || e?.message || 'Failed to load notebooks.'
+        );
       } finally {
         if (alive) setLoading(false);
       }
@@ -76,7 +79,10 @@ export default function Header() {
         e.preventDefault();
         setOpen(true);
         setTimeout(() => {
-          const input = menuRef.current?.querySelector<HTMLInputElement>('input[data-search]');
+          const input =
+            menuRef.current?.querySelector<HTMLInputElement>(
+              'input[data-search]'
+            );
           input?.focus();
           input?.select();
         }, 0);
@@ -94,30 +100,27 @@ export default function Header() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return notebooks;
-    return notebooks.filter((n) => titleOf(n).toLowerCase().includes(s));
+    return notebooks.filter(n => titleOf(n).toLowerCase().includes(s));
   }, [q, notebooks]);
 
   return (
     <div
       className="
         sticky top-0 z-50
-        bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60
-        border-b border-black/[0.06] shadow-[0_1px_0_0_rgba(0,0,0,0.02)]
-        px-3 sm:px-4 py-1.5   /* compact Stripe-like height */
+        bg-black 
+        border-b 
+        px-3 sm:px-4 py-1.5
       "
     >
-      <div className="mx-auto max-w-7xl flex items-center justify-between">
+      <div className={`mx-auto ${fullWidth? 'w-full' : 'max-w-4xl'} flex items-center justify-between`}>
         {/* Brand (keep understated like Stripe) */}
         <Link href="/" className="inline-flex items-center gap-2">
           <span
             className="
-              text-[15px] sm:text-sm font-semibold tracking-tight text-gray-900
+              text-[14px] sm:text-xl font-semibold tracking-tight text-gray-100
             "
           >
             Mercury
-          </span>
-          <span className="hidden sm:inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[10px] text-gray-500">
-            Dashboard
           </span>
         </Link>
 
@@ -128,10 +131,10 @@ export default function Header() {
             type="button"
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => setOpen(v => !v)}
             className="
               inline-flex items-center gap-2 rounded-lg
-              border border-gray-200 bg-white/80 px-3 py-1.5 text-[13px]
+              border border-gray-200 bg-white px-3 py-1.5 text-[13px]
               text-gray-700 hover:bg-white focus:outline-none
               focus-visible:ring-2 focus-visible:ring-blue-500/50
               transition
@@ -169,19 +172,25 @@ export default function Header() {
               <div className="sticky top-0 z-10 bg-white/90 backdrop-blur rounded-t-2xl">
                 <div className="px-3 pt-2 pb-2 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] font-medium text-gray-500">Your notebooks</div>
+                    <div className="text-[11px] font-medium text-gray-500">
+                      Your notebooks
+                    </div>
                     <div className="hidden sm:block text-[11px] text-gray-400">
-                      <kbd className="rounded border px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+                      <kbd className="rounded border px-1.5 py-0.5 text-[10px]">
+                        ⌘K
+                      </kbd>
                     </div>
                   </div>
                   <div className="mt-2">
-                    <label className="sr-only" htmlFor="nb-search">Search notebooks</label>
+                    <label className="sr-only" htmlFor="nb-search">
+                      Search notebooks
+                    </label>
                     <div className="relative">
                       <input
                         id="nb-search"
                         data-search
                         value={q}
-                        onChange={(e) => setQ(e.target.value)}
+                        onChange={e => setQ(e.target.value)}
                         placeholder="Search notebooks…"
                         className="
                           w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5
@@ -190,9 +199,25 @@ export default function Header() {
                         "
                       />
                       <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                          <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                          <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.6"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M21 21l-4.3-4.3"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                          />
+                          <circle
+                            cx="11"
+                            cy="11"
+                            r="6.5"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -215,12 +240,16 @@ export default function Header() {
 
                 {/* Error */}
                 {!loading && error && (
-                  <div className="px-3 py-3 text-[13px] text-red-600">{error}</div>
+                  <div className="px-3 py-3 text-[13px] text-red-600">
+                    {error}
+                  </div>
                 )}
 
                 {/* Empty */}
                 {!loading && !error && filtered.length === 0 && (
-                  <div className="px-3 py-3 text-[13px] text-gray-500">No notebooks found.</div>
+                  <div className="px-3 py-3 text-[13px] text-gray-500">
+                    No notebooks found.
+                  </div>
                 )}
 
                 {/* List */}
@@ -229,7 +258,14 @@ export default function Header() {
                     {filtered.map((nb, idx) => {
                       const t = titleOf(nb);
                       const href = hrefOf(nb);
-                      const key = (nb.id != null ? String(nb.id) : nb.slug) ?? `${t}-${idx}`;
+                      const key =
+                        (nb.id != null ? String(nb.id) : nb.slug) ??
+                        `${t}-${idx}`;
+
+                      const bg = nb.thumbnail_bg || '#f1f5f9'; // slate-100
+                      const color = nb.thumbnail_text_color || '#0f172a'; // slate-900
+                      const text = nb.thumbnail_text || '📒';
+
                       return (
                         <li key={key}>
                           <Link
@@ -237,22 +273,21 @@ export default function Header() {
                             onClick={() => setOpen(false)}
                             role="menuitem"
                             className="
-                              group mx-1 my-0.5 flex items-center gap-2 rounded-lg
+                              group mx-1 my-0.5 flex items-center gap-2.5 rounded-lg
                               px-2.5 py-2 text-[13px]
                               text-gray-700 hover:bg-gray-50 hover:text-gray-900
                               focus:outline-none
                             "
                           >
-                            <span
+                            {/* Thumbnail (matches NotebookCard style, scaled for menu) */}
+                            <div
                               aria-hidden
-                              className="
-                                inline-flex h-5 w-5 shrink-0 items-center justify-center
-                                rounded border border-gray-200 text-gray-500
-                                bg-white group-hover:border-gray-300
-                              "
+                              className={`inline-flex h-7 w-9 items-center justify-center rounded-lg shadow-sm flex-shrink-0 text-[${text.length > 2 ? 6 : 13}px] font-medium`}
+                              style={{ backgroundColor: bg, color }}
                             >
-                              📒
-                            </span>
+                              {text}
+                            </div>
+
                             <span className="truncate">{t}</span>
                           </Link>
                         </li>

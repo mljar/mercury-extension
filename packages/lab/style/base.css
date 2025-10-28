@@ -150,7 +150,7 @@
 }
 
 .mercury-toolbar-desc {
-  width: 200px;
+  width: 150px;
   border: 1px solid var(--jp-border-color2);
   border-radius: 4px;
   padding: 2px 6px;
@@ -170,6 +170,43 @@
   margin-right: 4px;
   font-size: 0.8rem;
   color: var(--jp-ui-font-color1);
+}
+
+
+/* Mercury App Toolbar – Thumbnail Text */
+.mercury-toolbar-thumbtext {
+  width: 100px;                /* enough for ≤10 chars */
+  border: 1px solid var(--jp-border-color2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 4px;
+  margin-right: 4px;
+  font: inherit;
+  color: var(--jp-ui-font-color1);
+  background: var(--jp-layout-color1);
+  height: 70% !important;
+  font-size: 0.8rem !important;
+}
+
+/* Mercury App Toolbar – Color Inputs (text + bg) */
+.mercury-toolbar-color {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  margin-right: 4px;
+  font-size: 0.8rem;
+  color: var(--jp-ui-font-color1);
+}
+
+.mercury-toolbar-color input[type="color"] {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  margin-right: 6px;
+  border: 1px solid var(--jp-border-color2);
+  border-radius: 4px;
+  background: var(--jp-layout-color1);
+  cursor: pointer;
 }
 
 /* App title */

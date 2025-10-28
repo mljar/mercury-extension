@@ -18,7 +18,9 @@ const NotebookCard = ({ notebook }: Props) => {
     setLoading(true);
     try {
       await API.post(`notebooks/${notebook.id}/launch/`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
       router.push(`/notebooks/${notebook.id}`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       alert('Failed to launch notebook.');
     } finally {
@@ -26,17 +28,29 @@ const NotebookCard = ({ notebook }: Props) => {
     }
   };
 
+  // --- Dynamic font size (emoji vs text with up to 10 chars) ---
+  const text = notebook.thumbnail_text || '📒';
+  let fontSize = '2.5rem'; // default big for emoji
+
+  if (typeof text === 'string') {
+    const len = text.length;
+
+    if (len > 6) fontSize = '0.9rem';
+    else if (len > 4) fontSize = '1.1rem';
+    else if (len > 2) fontSize = '1.4rem';
+    else fontSize = '2rem'; // 1–2 letters slightly smaller than emoji
+  }
+
   return (
     <div
       onClick={handleClick}
       className={`
         relative cursor-pointer select-none
-        rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur
-        shadow-[0_1px_2px_rgba(0,0,0,0.03)]
-        hover:shadow-[0_6px_20px_rgba(0,0,0,0.05)]
-        hover:border-gray-300 transition-all duration-200 ease-out
-        flex flex-col items-center justify-start text-center p-6
-        min-h-[220px]
+        rounded-2xl border border-gray-200 bg-white/80 backdrop-blur
+        shadow-sm hover:shadow-md hover:border-gray-300
+        transition-all duration-200 ease-out
+        flex flex-row items-center gap-5 p-5
+        min-h-[130px]
       `}
     >
       {/* Loading overlay */}
@@ -46,35 +60,35 @@ const NotebookCard = ({ notebook }: Props) => {
         </div>
       )}
 
-      {/* Thumbnail (text icon only) */}
+      {/* Thumbnail */}
       <div
-        className={`
-          flex items-center justify-center mb-4
-          h-12 w-12 rounded-xl
-          shadow-[0_1px_2px_rgba(0,0,0,0.04)]
-          text-2xl font-medium
-        `}
+        className="h-16 w-20 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
         style={{
-          backgroundColor: '#f8fafc', // soft neutral background
+          backgroundColor: notebook.thumbnail_bg || '#f1f5f9',
           color: notebook.thumbnail_text_color || '#0f172a',
+          fontSize,
+          fontWeight: 600,
+          textAlign: 'center',
+          lineHeight: 1.1,
+          padding: '4px',
+          display: 'flex',
         }}
       >
-        {notebook.thumbnail_text || '📒'}
+        {text}
       </div>
 
-      {/* Title */}
-      <h2 className="mb-1 text-base font-semibold text-gray-900 tracking-tight">
-        {notebook.name}
-      </h2>
+      {/* Info */}
+      <div className="flex flex-col justify-center">
+        <h2 className="text-lg font-semibold text-gray-900 tracking-tight">
+          {notebook.name}
+        </h2>
 
-      {/* Description */}
-      {notebook.description ? (
-        <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-          {notebook.description}
-        </p>
-      ) : (
-        <p className="text-sm text-gray-400 italic">No description</p>
-      )}
+        {notebook.description && (
+          <p className="text-base text-gray-600 leading-relaxed line-clamp-2 mt-1">
+            {notebook.description}
+          </p>
+        )}
+      </div>
     </div>
   );
 };
