@@ -146,6 +146,91 @@ export class MercuryWidget extends DocumentWidget<MercuryPanel, INotebookModel> 
       this.toolbar.addItem('app-desc', new Widget({ node: descInput }));
 
       /* ────────────────────────────────────────────────────────────────────
+       * Thumbnail text (<=10 chars) → metadata.mercury.thumbnail_text
+       * ──────────────────────────────────────────────────────────────────── */
+      const thumbTextInput = document.createElement('input');
+      thumbTextInput.placeholder = 'Thumbnail text';
+      thumbTextInput.maxLength = 10;
+      thumbTextInput.className = 'mercury-toolbar-thumbtext jp-mod-styled';
+      thumbTextInput.setAttribute('aria-label', 'Thumbnail text');
+
+      void context.ready.then(() => {
+        const meta = readMercuryMeta(context);
+        thumbTextInput.value = String(meta.thumbnail_text ?? '');
+      });
+
+      thumbTextInput.addEventListener('input', () => {
+        if (!context.model) return;
+        // już ograniczamy maxLength, ale dodatkowo trim:
+        const val = (thumbTextInput.value || '').slice(0, 10);
+        patchMercuryMeta(context, { thumbnail_text: val });
+        scheduleSave();
+      });
+
+      thumbTextInput.addEventListener('change', () => void context.save());
+      this.toolbar.addItem('thumb-text', new Widget({ node: thumbTextInput }));
+
+      /* ────────────────────────────────────────────────────────────────────
+       * Thumbnail text color → metadata.mercury.thumbnail_text_color
+       * ──────────────────────────────────────────────────────────────────── */
+      const thumbTextColorWrap = document.createElement('label');
+      thumbTextColorWrap.className = 'mercury-toolbar-color';
+      thumbTextColorWrap.title = 'Thumbnail text color';
+
+      const thumbTextColorInput = document.createElement('input');
+      thumbTextColorInput.type = 'color';
+      thumbTextColorInput.setAttribute('aria-label', 'Thumbnail text color');
+      thumbTextColorInput.style.marginRight = '6px';
+
+      const thumbTextColorLabel = document.createElement('span');
+      thumbTextColorLabel.textContent = 'Text color';
+      thumbTextColorWrap.append(thumbTextColorInput, thumbTextColorLabel);
+
+      void context.ready.then(() => {
+        const meta = readMercuryMeta(context);
+        // domyślna czerń jeśli brak
+        thumbTextColorInput.value = String(meta.thumbnail_text_color ?? '#000000');
+      });
+
+      thumbTextColorInput.addEventListener('change', () => {
+        if (!context.model) return;
+        patchMercuryMeta(context, { thumbnail_text_color: thumbTextColorInput.value });
+        void context.save();
+      });
+
+      this.toolbar.addItem('thumb-text-color', new Widget({ node: thumbTextColorWrap }));
+
+      /* ────────────────────────────────────────────────────────────────────
+       * Thumbnail background color → metadata.mercury.thumbnail_bg
+       * ──────────────────────────────────────────────────────────────────── */
+      const thumbBgWrap = document.createElement('label');
+      thumbBgWrap.className = 'mercury-toolbar-color';
+      thumbBgWrap.title = 'Thumbnail background color';
+
+      const thumbBgInput = document.createElement('input');
+      thumbBgInput.type = 'color';
+      thumbBgInput.setAttribute('aria-label', 'Thumbnail background color');
+      thumbBgInput.style.marginRight = '6px';
+
+      const thumbBgLabel = document.createElement('span');
+      thumbBgLabel.textContent = 'BG color';
+      thumbBgWrap.append(thumbBgInput, thumbBgLabel);
+
+      void context.ready.then(() => {
+        const meta = readMercuryMeta(context);
+        // domyślne białe tło
+        thumbBgInput.value = String(meta.thumbnail_bg ?? '#ffffff');
+      });
+
+      thumbBgInput.addEventListener('change', () => {
+        if (!context.model) return;
+        patchMercuryMeta(context, { thumbnail_bg: thumbBgInput.value });
+        void context.save();
+      });
+
+      this.toolbar.addItem('thumb-bg', new Widget({ node: thumbBgWrap }));
+
+      /* ────────────────────────────────────────────────────────────────────
        * Show code checkbox → metadata.mercury.showCode
        * ──────────────────────────────────────────────────────────────────── */
       const showCodeWrap = document.createElement('label');

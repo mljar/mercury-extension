@@ -15,8 +15,8 @@ class Notebook(models.Model):
         help_text="Path or URL to thumbnail image. If set, used as thumbnail."
     )
     thumbnail_bg = models.CharField(
-        max_length=20, blank=True, null=True, default='#4ade80',
-        help_text="Background color in hex, e.g., #4ade80"
+        max_length=20, blank=True, null=True, default='#f1f5f9',
+        help_text="Background color in hex, e.g., #f1f5f9"
     )
     thumbnail_text = models.CharField(
         max_length=10, blank=True, null=True,

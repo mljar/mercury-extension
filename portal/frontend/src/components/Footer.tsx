@@ -3,12 +3,12 @@ import React from 'react';
 
 export default function Footer() {
   return (
-    <div className="bg-white border-t border-gray-200 mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+    <footer className="bg-white border-t border-gray-200">
+      <div className="px-4 py-2">
         <div className="text-center text-gray-500 text-sm">
-          Notebook Portal - Manage your data science workflows
+          MLJAR - next generation of AI tools
         </div>
       </div>
-    </div>
+    </footer>
   );
 }

@@ -54,7 +54,7 @@ const NotebookCardList = () => {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900 tracking-tight">
+        <h2 className="text-xl font-semibold text-gray-900 tracking-tight">
           Notebooks
         </h2>
         <div className="w-64">
@@ -101,28 +101,29 @@ const NotebookCardList = () => {
         </div>
       )}
 
-      {/* Loading skeletons */}
+
+      {/* Loading skeletons — match grid wrapper and spacing exactly */}
       {loading && (
-        <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div
+          aria-hidden
+          className="grid grid-cols-1 sm:grid-cols-3 gap-6"
+        >
           {Array.from({ length: 6 }).map((_, i) => (
-            <li
+            <div
               key={i}
               className="
-                h-[220px] rounded-2xl border border-black/[0.06] bg-white/80 backdrop-blur
-                shadow-[0_1px_2px_rgba(0,0,0,0.03)] animate-pulse
+                min-h-[220px] rounded-2xl border border-black/[0.06] bg-white/80 backdrop-blur
+                shadow-[0_1px_2px_rgba(0,0,0,0.03)] animate-pulse p-6
               "
             >
-              <div className="h-full p-6">
-                <div className="h-12 w-12 rounded-xl bg-gray-100 mb-4" />
-                <div className="h-4 w-40 bg-gray-100 rounded mb-2" />
-                <div className="h-3 w-56 bg-gray-100 rounded mb-1.5" />
-                <div className="h-3 w-44 bg-gray-100 rounded" />
-              </div>
-            </li>
+              <div className="h-12 w-12 rounded-xl bg-gray-100 mb-4" />
+              <div className="h-4 w-40 bg-gray-100 rounded mb-2" />
+              <div className="h-3 w-56 bg-gray-100 rounded mb-1.5" />
+              <div className="h-3 w-44 bg-gray-100 rounded" />
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-
 
       {/* Empty state */}
       {!loading && !error && filtered.length === 0 && (
@@ -142,9 +143,9 @@ const NotebookCardList = () => {
         </div>
       )}
 
-      {/* Notebook grid (3 per row) */}
+      {/* Notebook grid — exact same wrapper classes as loading */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {filtered.map(notebook => (
             <NotebookCard key={notebook.id} notebook={notebook} />
           ))}
