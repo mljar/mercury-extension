@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && mv out/ ../backend/frontend-dist",
     "start": "next start",
     "lint": "next lint"
   },

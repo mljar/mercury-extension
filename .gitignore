@@ -1,6 +1,8 @@
 mervenv/*
 mercuryvenv/*
 portal/backend/db.sqlite3
+portal/backend/frontend-dist/
+
 *.bundle.*
 lib/
 node_modules/

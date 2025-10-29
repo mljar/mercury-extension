@@ -26,16 +26,15 @@ export default function Header({ fullWidth = false}: HeaderProps) {
 
   // helpers
   const titleOf = (nb: Notebook) =>
-    nb.title?.toString() ||
     nb.name?.toString() ||
-    nb.filename?.toString() ||
-    nb.slug?.toString() ||
+    nb.name?.toString() ||
+    nb.file_path?.toString() ||
     (nb.id != null ? String(nb.id) : 'Untitled');
 
   const hrefOf = (nb: Notebook) => {
     const idPart =
-      nb.slug ?? nb.id ?? nb.title ?? nb.name ?? nb.filename ?? 'unknown';
-    return `/notebooks/${encodeURIComponent(String(idPart))}`;
+      nb.id ?? nb.name ?? nb.name ?? nb.file_path ?? 'unknown';
+    return `/notebook?id=${encodeURIComponent(String(idPart))}`;
   };
 
   useEffect(() => {
@@ -44,6 +43,7 @@ export default function Header({ fullWidth = false}: HeaderProps) {
       try {
         setLoading(true);
         setError(null);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await API.get<any>('notebooks/');
         if (!alive) return;
         const data = res?.data;
@@ -53,6 +53,7 @@ export default function Header({ fullWidth = false}: HeaderProps) {
             ? data.results
             : [];
         setNotebooks(list);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         if (!alive) return;
         setError(
@@ -259,7 +260,7 @@ export default function Header({ fullWidth = false}: HeaderProps) {
                       const t = titleOf(nb);
                       const href = hrefOf(nb);
                       const key =
-                        (nb.id != null ? String(nb.id) : nb.slug) ??
+                        (nb.id != null ? String(nb.id) : nb.name) ??
                         `${t}-${idx}`;
 
                       const bg = nb.thumbnail_bg || '#f1f5f9'; // slate-100

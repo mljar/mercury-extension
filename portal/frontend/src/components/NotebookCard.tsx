@@ -19,7 +19,7 @@ const NotebookCard = ({ notebook }: Props) => {
     try {
       await API.post(`notebooks/${notebook.id}/launch/`);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      router.push(`/notebooks/${notebook.id}`);
+      router.push(`/notebook?id=${notebook.id}`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       alert('Failed to launch notebook.');
