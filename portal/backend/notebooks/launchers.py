@@ -120,7 +120,10 @@ class DefaultNotebookLauncher(NotebookLauncher):
                 f"--port={port}",
                 "--MercuryApp.timeout=10",
                 "--no-browser",
-                f"--IdentityProvider.token={token}",
+                f"--IdentityProvider.token=''", #{token}",
+                "--ServerApp.disable_check_xsrf=True",
+                #"--ServerApp.allow_remote_access=True",
+                #"--ServerApp.allow_origin=http://127.0.0.1:8000",
             ]
             logger.info(f"[{threading.get_ident()}] Launching new Mercury process for notebook {notebook.pk}: {cmd}")
             try:

@@ -1,12 +1,12 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import API from '@/lib/api';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 
-export default function NotebookViewer() {
-  const params = useParams();
-  const { id } = params as { id: string | number };
+export default function NotebookClient() {
+  const sp = useSearchParams();
+  const id = sp.get('id');               // <- czytamy z query
 
   const [notebookUrl, setNotebookUrl] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string>('');
@@ -111,6 +111,7 @@ export default function NotebookViewer() {
 
         // ready!
         setRetryCount(0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         // Normalize error cases
         const status = e?.response?.status as number | undefined;

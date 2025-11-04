@@ -17,6 +17,7 @@ const NotebookCardList = () => {
       try {
         setLoading(true);
         setError(null);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await API.get<any>('notebooks/');
         if (!alive) return;
         const data = res?.data;
@@ -26,6 +27,7 @@ const NotebookCardList = () => {
             ? data.results
             : [];
         setNotebooks(list);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         if (!alive) return;
         setError(

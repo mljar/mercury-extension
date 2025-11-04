@@ -92,12 +92,32 @@ class MercuryApp(LabServerApp):
     def initialize_settings(self):
         super().initialize_settings()
         self.settings['show_code'] = self.show_code
+        print('Settings update -------------------------4444')
+        allowed = [
+            "'self'",
+            #"http://localhost:*",
+            "http://127.0.0.1:8000",
+            #"http://[::1]:*",
+            # if you ever run over https in dev:
+            #"https://localhost:*",
+            #"https://127.0.0.1:*",
+            #"https://[::1]:*",
+        ]
         self.settings.update({
             "headers": {
-                "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
-                "Access-Control-Allow-Origin": "http://localhost:3000"
+                "Content-Security-Policy": "frame-ancestors " + " ".join(allowed),
+                # CORS is unrelated to iframes, but keep if you need XHR:
+                "Access-Control-Allow-Origin": "http://127.0.0.1:8000",
+                # Make sure no legacy header fights your CSP:
+                "X-Frame-Options": "ALLOWALL",
             }
         })
+        # self.settings.update({
+        #     "headers": {
+        #         "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
+        #         "Access-Control-Allow-Origin": "http://localhost:3000"
+        #     }
+        # })
 
     def initialize(self, argv=None):
         super().initialize()
