@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from os.path import join as pjoin
 from traitlets import Integer, Bool
 
@@ -23,6 +24,88 @@ from .theme_handler import ThemeHandler
 from .custom_contents_handler import MercuryContentsHandler
 
 from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
+
+from jupyter_server.base.handlers import JupyterHandler
+from jupyter_server.utils import url_path_join
+import tornado.web
+
+class NotebooksAPIHandler(JupyterHandler):
+    """API endpoint to return list of notebooks."""
+    
+    @tornado.web.authenticated
+    def get(self):
+        """Return notebooks as JSON."""
+        base = self.settings.get("base_url", "")
+        
+        # Define your notebooks here
+        notebooks = [
+            {
+                "name": "Tabs demo",
+                "description": "Notebook with tabs.",
+                "href": f"{base}mercury/tabs.ipynb",
+                "thumbnail_bg": "#f1f5f9",
+                "thumbnail_text": "📒",
+                "thumbnail_text_color": "#0f172a",
+            },
+            {
+                "name": "Plots demo",
+                "description": "Notebook with charts.",
+                "href": f"{base}mercury/plots.ipynb",
+                "thumbnail_bg": "#eef2ff",
+                "thumbnail_text": "📈",
+                "thumbnail_text_color": "#3730a3",
+            },
+            {
+                "name": "Data Analysis",
+                "description": "Advanced data processing.",
+                "href": f"{base}mercury/analysis.ipynb",
+                "thumbnail_bg": "#dcfce7",
+                "thumbnail_text": "🔬",
+                "thumbnail_text_color": "#166534",
+            },
+        ]
+        
+        self.set_header("Content-Type", "application/json")
+        self.finish(json.dumps(notebooks))
+
+class RootIndexHandler(JupyterHandler):
+    @tornado.web.authenticated
+    def get(self):
+        base = self.settings.get("base_url", "")
+        tabs_url = url_path_join(base, "mercury", "tabs.ipynb")
+        plots_url = url_path_join(base, "mercury", "plots.ipynb")
+
+        # inside RootIndexHandler.get()
+        notebooks = [
+            {
+                "name": "Tabs demo",
+                "description": "Notebook with tabs.",
+                "href": tabs_url,
+                "thumbnail_bg": "#f1f5f9",
+                "thumbnail_text": "📒",
+                "thumbnail_text_color": "#0f172a",
+            },
+            {
+                "name": "Plots demo",
+                "description": "Notebook with charts.",
+                "href": plots_url,
+                "thumbnail_bg": "#eef2ff",
+                "thumbnail_text": "📈",
+                "thumbnail_text_color": "#3730a3",
+            },
+            {
+                "name": "Plots demo",
+                "description": "Notebook with charts.",
+                "href": plots_url,
+                "thumbnail_bg": "#1ef222",
+                "thumbnail_text": "this is test",
+                "thumbnail_text_color": "#3730a3",
+            },
+        ]
+        html = self.render_template("root.html", notebooks=notebooks, base_url=base)
+
+        self.set_header("Content-Type", "text/html; charset=UTF-8")
+        self.finish(html)
 
 logger = logging.getLogger("mercury.app")
 
@@ -49,7 +132,7 @@ class MercuryApp(LabServerApp):
     version = version
     app_version = version
     extension_url = "/mercury"
-    default_url = "/mercury"
+    default_url = "/"
     file_url_prefix = "/mercury"
     load_other_extensions = True
     app_dir = app_dir
@@ -73,6 +156,11 @@ class MercuryApp(LabServerApp):
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
          # new theme API (must come first)
+
+        self.handlers.append((r"/", RootIndexHandler))
+        # Add the notebooks API endpoint
+        self.handlers.append(("/mercury/api/notebooks", NotebooksAPIHandler))
+
         self.handlers.append(("/mercury/api/theme", ThemeHandler))
 
         # generic Mercury handler (catch-all)
@@ -83,41 +171,44 @@ class MercuryApp(LabServerApp):
         super().initialize_handlers()
 
     def initialize_templates(self):
+        from jinja2 import ChoiceLoader, FileSystemLoader
+        # Build Jupyter's default env first
         super().initialize_templates()
+
+        # Template & static dirs
         self.static_dir = os.path.join(HERE, "static")
         self.templates_dir = os.path.join(HERE, "templates")
         self.static_paths = [self.static_dir]
-        self.template_paths = [self.templates_dir]
+
+        # Inject our templates dir into the live Jinja env 
+        web_app = self.serverapp.web_app if hasattr(self, "serverapp") else None
+        env = (web_app.settings.get("jinja2_env")
+               if web_app else self.settings.get("jinja2_env"))
+
+        if env is not None:
+            my_loader = FileSystemLoader(self.templates_dir)
+            if isinstance(env.loader, ChoiceLoader):
+                # Prepend so our templates override defaults
+                env.loader.loaders.insert(0, my_loader)
+            else:
+                # Wrap existing loader so both work
+                env.loader = ChoiceLoader([my_loader, env.loader])
+
+            # (Optional) keep a record for debugging/other extensions
+            paths = web_app.settings.get("template_paths", []) if web_app else self.settings.get("template_paths", [])
+            if self.templates_dir not in paths:
+                paths.insert(0, self.templates_dir)
+                if web_app:
+                    web_app.settings["template_paths"] = paths
+                else:
+                    self.settings["template_paths"] = paths
+        else:
+            # Fallback (shouldn't happen on normal Jupyter Server runs)
+            self.template_paths = [self.templates_dir]
 
     def initialize_settings(self):
         super().initialize_settings()
         self.settings['show_code'] = self.show_code
-        print('Settings update -------------------------4444')
-        allowed = [
-            "'self'",
-            #"http://localhost:*",
-            "http://127.0.0.1:8000",
-            #"http://[::1]:*",
-            # if you ever run over https in dev:
-            #"https://localhost:*",
-            #"https://127.0.0.1:*",
-            #"https://[::1]:*",
-        ]
-        self.settings.update({
-            "headers": {
-                "Content-Security-Policy": "frame-ancestors " + " ".join(allowed),
-                # CORS is unrelated to iframes, but keep if you need XHR:
-                "Access-Control-Allow-Origin": "http://127.0.0.1:8000",
-                # Make sure no legacy header fights your CSP:
-                "X-Frame-Options": "ALLOWALL",
-            }
-        })
-        # self.settings.update({
-        #     "headers": {
-        #         "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
-        #         "Access-Control-Allow-Origin": "http://localhost:3000"
-        #     }
-        # })
 
     def initialize(self, argv=None):
         super().initialize()

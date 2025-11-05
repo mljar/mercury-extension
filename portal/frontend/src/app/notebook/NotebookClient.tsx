@@ -54,6 +54,7 @@ export default function NotebookClient() {
   // Helper to check server readiness
   const waitForServer = async (url: string, tries = 5, delay = 1000) => {
     for (let i = 0; i < tries; i++) {
+      console.log('waitForServer', i);
       try {
         await fetch(url, { method: 'GET', mode: 'no-cors' });
         return true;
@@ -98,7 +99,7 @@ export default function NotebookClient() {
         // 3) Wait for server to respond
         const notebookBaseUrl = (url || '').split('?')[0];
         const pingUrl = notebookBaseUrl + '?_=' + Date.now();
-        const ready = await waitForServer(pingUrl, 5, 1000);
+        const ready = await waitForServer(pingUrl, 10, 500);
 
         if (!ready) {
           // Treat as retryable (server not ready yet)
