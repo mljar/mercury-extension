@@ -103,6 +103,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
           color:#111827; font-size:14px;
           text-decoration:none;
           transition: background-color .12s ease, transform .12s ease;
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         }
         .mrc-menu-item:hover{ background:#f8fafc; text-decoration:none; }
         .mrc-menu-item:active{ transform: translateY(0.5px); }
@@ -126,7 +127,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
       const brand = document.createElement('a');
       brand.className = 'mrc-brand';
       brand.href = PageConfig.getBaseUrl() || '/';
-      brand.textContent = 'Mercury';
+      brand.textContent = '(M)ercury';
 
       // Right-side: Notebooks menu button (initially disabled until we load)
       const rightWrap = document.createElement('div');

@@ -29,81 +29,104 @@ from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
 import tornado.web
 
+from .notebooks_meta import list_notebooks   
+
 class NotebooksAPIHandler(JupyterHandler):
-    """API endpoint to return list of notebooks."""
-    
+    """API endpoint to return list of notebooks discovered on disk."""
+
     @tornado.web.authenticated
     def get(self):
-        """Return notebooks as JSON."""
-        base = self.settings.get("base_url", "")
-        
-        # Define your notebooks here
-        notebooks = [
-            {
-                "name": "Tabs demo",
-                "description": "Notebook with tabs.",
-                "href": f"{base}mercury/tabs.ipynb",
-                "thumbnail_bg": "#f1f5f9",
-                "thumbnail_text": "📒",
-                "thumbnail_text_color": "#0f172a",
-            },
-            {
-                "name": "Plots demo",
-                "description": "Notebook with charts.",
-                "href": f"{base}mercury/plots.ipynb",
-                "thumbnail_bg": "#eef2ff",
-                "thumbnail_text": "📈",
-                "thumbnail_text_color": "#3730a3",
-            },
-            {
-                "name": "Data Analysis",
-                "description": "Advanced data processing.",
-                "href": f"{base}mercury/analysis.ipynb",
-                "thumbnail_bg": "#dcfce7",
-                "thumbnail_text": "🔬",
-                "thumbnail_text_color": "#166534",
-            },
-        ]
-        
+        base = self.settings.get("base_url", "") or ""
+
+        # Defaults come from settings; both are optional.
+        notebooks_dir = self.settings.get("notebooks_dir", os.getcwd())
+        url_prefix = "mercury/"
+
+        # Allow overriding via query params (optional)
+        q_dir = self.get_argument("dir", default=None)
+        if q_dir:
+            notebooks_dir = q_dir
+        recursive = self.get_argument("recursive", default="0") in {"1", "true", "True"}
+
+        if not os.path.isdir(notebooks_dir):
+            self.set_status(400)
+            self.finish(json.dumps({"error": f"Notebooks directory '{notebooks_dir}' does not exist"}))
+            return
+
+        items = list_notebooks(notebooks_dir=notebooks_dir, recursive=recursive)
+
+        notebooks = []
+        for it in items:
+            rel_path = it["rel_path"]
+            href = f"{base}{url_prefix}{rel_path}"
+
+            rec = {
+                "name": it["name"],
+                "description": it["description"],
+                "href": href,
+            }
+
+            # Copy known extras if present
+            extras = it.get("extras", {})
+            for k in ("thumbnail_bg", "thumbnail_text", "thumbnail_text_color", "show_code"):
+                if k in extras and extras[k] is not None:
+                    rec[k] = extras[k]
+
+            if "metadata_error" in it:
+                rec["metadata_error"] = it["metadata_error"]
+
+            notebooks.append(rec)
+
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps(notebooks))
 
 class RootIndexHandler(JupyterHandler):
     @tornado.web.authenticated
     def get(self):
-        base = self.settings.get("base_url", "")
-        tabs_url = url_path_join(base, "mercury", "tabs.ipynb")
-        plots_url = url_path_join(base, "mercury", "plots.ipynb")
+        base = self.settings.get("base_url", "") or ""
 
-        # inside RootIndexHandler.get()
-        notebooks = [
-            {
-                "name": "Tabs demo",
-                "description": "Notebook with tabs.",
-                "href": tabs_url,
-                "thumbnail_bg": "#f1f5f9",
-                "thumbnail_text": "📒",
-                "thumbnail_text_color": "#0f172a",
-            },
-            {
-                "name": "Plots demo",
-                "description": "Notebook with charts.",
-                "href": plots_url,
-                "thumbnail_bg": "#eef2ff",
-                "thumbnail_text": "📈",
-                "thumbnail_text_color": "#3730a3",
-            },
-            {
-                "name": "Plots demo",
-                "description": "Notebook with charts.",
-                "href": plots_url,
-                "thumbnail_bg": "#1ef222",
-                "thumbnail_text": "this is test",
-                "thumbnail_text_color": "#3730a3",
-            },
-        ]
+        # Same defaults as the API handler
+        notebooks_dir = self.settings.get("notebooks_dir", os.getcwd())
+        url_prefix = "mercury/"
+        recursive = bool(self.settings.get("notebooks_recursive", False))
+
+        if not os.path.isdir(notebooks_dir):
+            # Render an empty page with a friendly message instead of 400
+            html = self.render_template(
+                "root.html",
+                notebooks=[],
+                base_url=base,
+                error=f"Notebooks directory '{notebooks_dir}' does not exist."
+            )
+            self.set_header("Content-Type", "text/html; charset=UTF-8")
+            self.finish(html)
+            return
+
+        items = list_notebooks(notebooks_dir=notebooks_dir, recursive=recursive)
+
+        notebooks = []
+        for it in items:
+            rel_path = it["rel_path"]
+            href = f"{base}{url_prefix}{rel_path}"
+
+            rec = {
+                "name": it["name"],
+                "description": it["description"],
+                "href": href,
+            }
+
+            # Copy known extras if present (keeps your template props working)
+            extras = it.get("extras", {})
+            for k in ("thumbnail_bg", "thumbnail_text", "thumbnail_text_color", "show_code"):
+                if k in extras and extras[k] is not None:
+                    rec[k] = extras[k]
+
+            if "metadata_error" in it:
+                rec["metadata_error"] = it["metadata_error"]
+
+            notebooks.append(rec)
+
         html = self.render_template("root.html", notebooks=notebooks, base_url=base)
-
         self.set_header("Content-Type", "text/html; charset=UTF-8")
         self.finish(html)
 
@@ -209,6 +232,7 @@ class MercuryApp(LabServerApp):
     def initialize_settings(self):
         super().initialize_settings()
         self.settings['show_code'] = self.show_code
+        self.settings.setdefault("notebooks_dir", os.getcwd())
 
     def initialize(self, argv=None):
         super().initialize()
