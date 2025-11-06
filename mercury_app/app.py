@@ -1,10 +1,23 @@
+import json
+import logging
 import os
 import sys
-import json
 from os.path import join as pjoin
-from traitlets import Integer, Bool
 
-import logging
+from jupyterlab.commands import (get_app_dir, get_user_settings_dir,
+                                 get_workspaces_dir)
+from jupyterlab_server import LabServerApp
+from traitlets import Bool, Integer
+
+from ._version import __version__
+from .custom_contents_handler import MercuryContentsHandler
+from .handlers import MercuryHandler
+from .idle_timeout import (TimeoutActivityTransform, TimeoutManager,
+                           patch_kernel_websocket_handler)
+from .notebooks import NotebooksAPIHandler
+from .root import RootIndexHandler
+from .theme_handler import ThemeHandler
+
 #logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(name)s:%(message)s")
 # for name in ("mercury.app", "mercury.idle_timeout"):
 #     logger = logging.getLogger(name)
@@ -14,131 +27,6 @@ import logging
 #         handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
 #         logger.addHandler(handler)
             
-
-from jupyterlab_server import LabServerApp
-from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspaces_dir
-
-from ._version import __version__
-from .handlers import MercuryHandler, MAIN_CONFIG, WELCOME_CONFIG
-from .theme_handler import ThemeHandler
-from .custom_contents_handler import MercuryContentsHandler
-
-from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
-
-from jupyter_server.base.handlers import JupyterHandler
-from jupyter_server.utils import url_path_join
-import tornado.web
-
-from .notebooks_meta import list_notebooks   
-
-class NotebooksAPIHandler(JupyterHandler):
-    """API endpoint to return list of notebooks discovered on disk."""
-
-    @tornado.web.authenticated
-    def get(self):
-        base = self.settings.get("base_url", "") or ""
-
-        # Defaults come from settings; both are optional.
-        notebooks_dir = self.settings.get("notebooks_dir", os.getcwd())
-        url_prefix = "mercury/"
-
-        # Allow overriding via query params (optional)
-        q_dir = self.get_argument("dir", default=None)
-        if q_dir:
-            notebooks_dir = q_dir
-        recursive = self.get_argument("recursive", default="0") in {"1", "true", "True"}
-
-        if not os.path.isdir(notebooks_dir):
-            self.set_status(400)
-            self.finish(json.dumps({"error": f"Notebooks directory '{notebooks_dir}' does not exist"}))
-            return
-
-        items = list_notebooks(notebooks_dir=notebooks_dir, recursive=recursive)
-
-        notebooks = []
-        for it in items:
-            rel_path = it["rel_path"]
-            href = f"{base}{url_prefix}{rel_path}"
-
-            rec = {
-                "name": it["name"],
-                "description": it["description"],
-                "href": href,
-            }
-
-            # Copy known extras if present
-            extras = it.get("extras", {})
-            for k in ("thumbnail_bg", "thumbnail_text", "thumbnail_text_color", "show_code"):
-                if k in extras and extras[k] is not None:
-                    rec[k] = extras[k]
-
-            if "metadata_error" in it:
-                rec["metadata_error"] = it["metadata_error"]
-
-            notebooks.append(rec)
-
-        self.set_header("Content-Type", "application/json")
-        self.finish(json.dumps(notebooks))
-
-class RootIndexHandler(JupyterHandler):
-    @tornado.web.authenticated
-    def get(self):
-        base = self.settings.get("base_url", "") or ""
-
-        # Same defaults as the API handler
-        notebooks_dir = self.settings.get("notebooks_dir", os.getcwd())
-        url_prefix = "mercury/"
-        recursive = bool(self.settings.get("notebooks_recursive", False))
-
-        if not os.path.isdir(notebooks_dir):
-            # Render an empty page with a friendly message instead of 400
-            html = self.render_template(
-                "root.html",
-                notebooks=[],
-                base_url=base,
-                error=f"Notebooks directory '{notebooks_dir}' does not exist."
-            )
-            self.set_header("Content-Type", "text/html; charset=UTF-8")
-            self.finish(html)
-            return
-
-        items = list_notebooks(notebooks_dir=notebooks_dir, recursive=recursive)
-
-        notebooks = []
-        for it in items:
-            rel_path = it["rel_path"]
-            href = f"{base}{url_prefix}{rel_path}"
-
-            rec = {
-                "name": it["name"],
-                "description": it["description"],
-                "href": href,
-            }
-
-            # Copy known extras if present (keeps your template props working)
-            extras = it.get("extras", {})
-            for k in ("thumbnail_bg", "thumbnail_text", "thumbnail_text_color", "show_code"):
-                if k in extras and extras[k] is not None:
-                    rec[k] = extras[k]
-
-            if "metadata_error" in it:
-                rec["metadata_error"] = it["metadata_error"]
-
-            notebooks.append(rec)
-
-        default_welcome_msg = """
-        <p class="lead"><b>Welcome to Mercury.</b> You're viewing notebooks turned into user-friendly apps.</p>
-        <p class="lead2">Feel free to interact and explore - everything is designed to be <b>simple and safe</b>.</p>
-        """
-
-        html = self.render_template("root.html", notebooks=notebooks, base_url=base, 
-                                    title=MAIN_CONFIG.get("title", "Mercury"),           
-                                    footer=MAIN_CONFIG.get("footer", "MLJAR - next generation of AI tools"),
-                                    header=WELCOME_CONFIG.get("header", "Hi there! 👋"),
-                                    message=WELCOME_CONFIG.get("message", default_welcome_msg))
-        self.set_header("Content-Type", "text/html; charset=UTF-8")
-        self.finish(html)
-
 logger = logging.getLogger("mercury.app")
 
 class SuppressKernelDoesNotExist(logging.Filter):
@@ -180,10 +68,9 @@ class MercuryApp(LabServerApp):
         help="Timeout (in seconds) before shutting down if idle. 0 disables timeout."
     ).tag(config=True)
 
-    show_code = Bool(
-        False,  
-        help="Show code cells' input area."
-    ).tag(config=True)
+    aliases = {
+        "timeout": "MercuryApp.timeout",
+    }
 
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
@@ -204,6 +91,7 @@ class MercuryApp(LabServerApp):
 
     def initialize_templates(self):
         from jinja2 import ChoiceLoader, FileSystemLoader
+
         # Build Jupyter's default env first
         super().initialize_templates()
 
@@ -240,7 +128,6 @@ class MercuryApp(LabServerApp):
 
     def initialize_settings(self):
         super().initialize_settings()
-        self.settings['show_code'] = self.show_code
         self.settings.setdefault("notebooks_dir", os.getcwd())
 
     def initialize(self, argv=None):

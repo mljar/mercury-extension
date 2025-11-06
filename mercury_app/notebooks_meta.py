@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Tuple, Any, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # ipynb "mercury" metadata keys -> API field names
 MERCURY_THUMBNAIL_KEYS: Dict[str, str] = {

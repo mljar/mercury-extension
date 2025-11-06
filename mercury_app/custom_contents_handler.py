@@ -1,8 +1,8 @@
 import datetime
-from tornado.web import HTTPError
 
 from jupyter_server.services.contents.handlers import ContentsHandler
 from jupyter_server.utils import ensure_async
+from tornado.web import HTTPError
 
 
 def convert_datetimes(obj):
@@ -25,23 +25,19 @@ class MercuryContentsHandler(ContentsHandler):
         self.finish(model)
 
     async def put(self, path=""):
-        print("put 2 "*20)
         model = await ensure_async(self.contents_manager.get(path, content=True, type=None, format=None))
         model = convert_datetimes(model)
         self.set_header("Content-Type", "application/json")
         self.finish(model)
 
     async def patch(self, path=""):
-        print("patch"*20)
         # Block patching!
         raise HTTPError(403, reason="Patching notebooks is disabled in this application.")
 
     async def post(self, path=""):
-        print("post"*20)
         # Block creating!
         raise HTTPError(403, reason="Creating notebooks is disabled in this application.")
 
     async def delete(self, path=""):
-        print("delete"*20)
         # Optional: Block deleting notebooks
         raise HTTPError(403, reason="Deleting notebooks is disabled in this application.")

@@ -1,6 +1,7 @@
 import logging
 import time
-from threading import Thread, Event
+from threading import Event, Thread
+
 import tornado.web
 
 logger = logging.getLogger("mercury.idle_timeout")
@@ -61,7 +62,8 @@ class TimeoutActivityTransform(tornado.web.OutputTransform):
 
 def patch_kernel_websocket_handler():
     try:
-        from jupyter_server.services.kernels.websocket import KernelWebsocketHandler
+        from jupyter_server.services.kernels.websocket import \
+            KernelWebsocketHandler
         orig_on_message = KernelWebsocketHandler.on_message
         def on_message_with_touch(self, message):
             if hasattr(self.application, "_timeout_manager"):

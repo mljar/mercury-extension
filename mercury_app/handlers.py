@@ -2,44 +2,43 @@ from pathlib import Path
 from typing import Optional
 
 from jupyter_server.base.handlers import JupyterHandler
-from jupyter_server.extension.handler import ExtensionHandlerJinjaMixin, ExtensionHandlerMixin
-from jupyter_server.utils import ensure_async, url_path_join as ujoin
-from jupyterlab_server.config import get_page_config, recursive_update, LabConfig
-from jupyterlab_server.handlers import is_url, _camelCase
+from jupyter_server.extension.handler import (ExtensionHandlerJinjaMixin,
+                                              ExtensionHandlerMixin)
+from jupyter_server.utils import ensure_async
+from jupyter_server.utils import url_path_join as ujoin
+from jupyterlab_server.config import (LabConfig, get_page_config,
+                                      recursive_update)
+from jupyterlab_server.handlers import _camelCase, is_url
 from tornado import web
 
 from ._version import __version__
+
 version = __version__
 
-import toml
 from pathlib import Path
 
-def load_theme_config(config_path="config.toml"):
+import toml
+
+
+def load_config(config_path="config.toml"):
     config_file = Path(config_path)
     if not config_file.exists():
-        return {}
+        return {"theme": {}, "main": {}, "welcome": {}}
+
     config = toml.load(config_file)
-    return config.get("theme", {})
 
-THEME = load_theme_config()
+    # Ensure missing sections return empty dicts
+    return {
+        "theme": config.get("theme", {}),
+        "main": config.get("main", {}),
+        "welcome": config.get("welcome", {})
+    }
 
-def load_main_config(config_path="config.toml"):
-    config_file = Path(config_path)
-    if not config_file.exists():
-        return {}
-    config = toml.load(config_file)
-    return config.get("main", {})
+CONFIG = load_config()
 
-MAIN_CONFIG = load_main_config()
-
-def load_welcome_config(config_path="config.toml"):
-    config_file = Path(config_path)
-    if not config_file.exists():
-        return {}
-    config = toml.load(config_file)
-    return config.get("welcome", {})
-
-WELCOME_CONFIG = load_welcome_config()
+THEME = CONFIG["theme"]
+MAIN_CONFIG = CONFIG["main"]
+WELCOME_CONFIG = CONFIG["welcome"]
 
 
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
@@ -119,8 +118,10 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             )
 
         page_config = self.get_page_config(path)
-        page_config["showCode"] = self.settings.get("show_code", False)
         page_config["theme"] = THEME
+
+        print('*'*22)
+        print(page_config)
 
         return self.write(
             self.render_template(
