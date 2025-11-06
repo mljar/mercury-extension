@@ -156,7 +156,7 @@
   <!-- Header -->
   <header class="hdr" role="banner">
     <div class="hdr-inner">
-      <a class="brand" href="{{ base_url or '/' }}">(M)ercury</a>
+      <a class="brand" href="{{ base_url or '/' }}">{{ title or 'Mercury'}}</a>
 
       <!-- Render menu button ONLY when there are notebooks -->
       {% if notebooks %}
@@ -180,9 +180,19 @@
   <main class="main" role="main">
     <div class="wrap">
       <section aria-labelledby="welcome">
-        <h1 id="welcome" class="h1">Hi there! 👋</h1>
-        <p class="lead"><b>Welcome to Mercury.</b> You're viewing notebooks turned into user-friendly apps.</p>
-        <p class="lead2">Feel free to interact and explore - everything is designed to be <b>simple and safe</b>.</p>
+        <h1 id="welcome" class="h1">{{ header }}</h1>
+        
+        {% if message and message != 'empty' %}
+            <p class="lead">{{ message|safe }}</p>
+        {% else %}
+            {% if not message or message == '' or message == 'empty' %}
+                {# show nothing #}
+            {% else %}
+                <p class="lead"><b>Welcome to Mercury.</b> You're viewing notebooks turned into user-friendly apps.</p>
+                <p class="lead2">Feel free to interact and explore - everything is designed to be <b>simple and safe</b>.</p>
+            {% endif %}
+        {% endif %}
+        
       </section>
 
       {% if notebooks %}
@@ -265,7 +275,7 @@
   </main>
 
   <footer class="ftr">
-    <div class="ftr-inner">MLJAR - next generation of AI tools</div>
+    <div class="ftr-inner">{{ footer or 'MLJAR - next generation of AI tools' }}</div>
   </footer>
 
   <script>

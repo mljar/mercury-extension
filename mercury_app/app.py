@@ -19,7 +19,7 @@ from jupyterlab_server import LabServerApp
 from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspaces_dir
 
 from ._version import __version__
-from .handlers import MercuryHandler
+from .handlers import MercuryHandler, MAIN_CONFIG, WELCOME_CONFIG
 from .theme_handler import ThemeHandler
 from .custom_contents_handler import MercuryContentsHandler
 
@@ -126,7 +126,16 @@ class RootIndexHandler(JupyterHandler):
 
             notebooks.append(rec)
 
-        html = self.render_template("root.html", notebooks=notebooks, base_url=base)
+        default_welcome_msg = """
+        <p class="lead"><b>Welcome to Mercury.</b> You're viewing notebooks turned into user-friendly apps.</p>
+        <p class="lead2">Feel free to interact and explore - everything is designed to be <b>simple and safe</b>.</p>
+        """
+
+        html = self.render_template("root.html", notebooks=notebooks, base_url=base, 
+                                    title=MAIN_CONFIG.get("title", "Mercury"),           
+                                    footer=MAIN_CONFIG.get("footer", "MLJAR - next generation of AI tools"),
+                                    header=WELCOME_CONFIG.get("header", "Hi there! 👋"),
+                                    message=WELCOME_CONFIG.get("message", default_welcome_msg))
         self.set_header("Content-Type", "text/html; charset=UTF-8")
         self.finish(html)
 

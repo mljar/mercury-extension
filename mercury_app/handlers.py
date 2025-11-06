@@ -14,14 +14,33 @@ version = __version__
 import toml
 from pathlib import Path
 
-def load_theme(config_path="config.toml"):
+def load_theme_config(config_path="config.toml"):
     config_file = Path(config_path)
     if not config_file.exists():
         return {}
     config = toml.load(config_file)
     return config.get("theme", {})
 
-THEME = load_theme()
+THEME = load_theme_config()
+
+def load_main_config(config_path="config.toml"):
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return {}
+    config = toml.load(config_file)
+    return config.get("main", {})
+
+MAIN_CONFIG = load_main_config()
+
+def load_welcome_config(config_path="config.toml"):
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return {}
+    config = toml.load(config_file)
+    return config.get("welcome", {})
+
+WELCOME_CONFIG = load_welcome_config()
+
 
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
     """Render the Mercury app."""
@@ -39,6 +58,7 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             "fullStaticUrl": ujoin(self.base_url, "static", self.name),
             "frontendUrl": ujoin(self.base_url, "mercury/"),
             "notebookPath": notebook_path,
+            "title": MAIN_CONFIG.get("title", "Mercury"), 
         }
 
         mathjax_config = self.settings.get("mathjax_config", "TeX-AMS_HTML-full,Safe")
