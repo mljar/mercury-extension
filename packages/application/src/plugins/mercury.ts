@@ -127,7 +127,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
       const brand = document.createElement('a');
       brand.className = 'mrc-brand';
       brand.href = PageConfig.getBaseUrl() || '/';
-      brand.textContent = '(M)ercury';
+      brand.textContent = PageConfig.getOption('title') || 'Mercury';
 
       // Right-side: Notebooks menu button (initially disabled until we load)
       const rightWrap = document.createElement('div');
