@@ -18,6 +18,8 @@ from .notebooks import NotebooksAPIHandler
 from .root import RootIndexHandler
 from .theme_handler import ThemeHandler
 
+from traitlets.config import Config
+
 #logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(name)s:%(message)s")
 # for name in ("mercury.app", "mercury.idle_timeout"):
 #     logger = logging.getLogger(name)
@@ -71,6 +73,33 @@ class MercuryApp(LabServerApp):
     aliases = {
         "timeout": "MercuryApp.timeout",
     }
+
+    def initialize(self, argv=None):
+        print('initialize')
+        # Determine whether token came from CLI or config
+        cli_token = None
+        if hasattr(self, "cli_config") and isinstance(self.cli_config, Config):
+            cli_token = (self.cli_config.get("ServerApp", {}) or {}).get("token")
+            if cli_token is None:
+                cli_token = (self.cli_config.get("IdentityProvider", {}) or {}).get("token")
+
+        cfg_token = (self.config.get("ServerApp", {}) or {}).get("token")
+        if cfg_token is None:
+            cfg_token = (self.config.get("IdentityProvider", {}) or {}).get("token")
+
+        # If neither CLI nor config provided a token, set the default to empty
+        if cli_token is None and cfg_token is None:
+            # set both to be safe across versions
+            if "ServerApp" not in self.config:
+                self.config.ServerApp = Config()
+            self.config.ServerApp.token = ""
+
+            if "IdentityProvider" not in self.config:
+                self.config.IdentityProvider = Config()
+            self.config.IdentityProvider.token = ""
+
+        # proceed with normal init (now with defaults in place; CLI still overrides)
+        super().initialize(argv)
 
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
