@@ -11,7 +11,7 @@ from traitlets import Bool, Integer
 
 from ._version import __version__
 from .custom_contents_handler import MercuryContentsHandler
-from .handlers import MercuryHandler
+from .handlers import MercuryHandler, MAIN_CONFIG
 from .idle_timeout import (TimeoutActivityTransform, TimeoutManager,
                            patch_kernel_websocket_handler)
 from .notebooks import NotebooksAPIHandler
@@ -90,45 +90,107 @@ class MercuryApp(LabServerApp):
         super().initialize_handlers()
 
     def initialize_templates(self):
-        from jinja2 import ChoiceLoader, FileSystemLoader
-
-        # Build Jupyter's default env first
         super().initialize_templates()
 
-        # Template & static dirs
         self.static_dir = os.path.join(HERE, "static")
-        self.templates_dir = os.path.join(HERE, "templates")
-        self.static_paths = [self.static_dir]
+        # self.templates_dir = os.path.join(HERE, "templates")
 
-        # Inject our templates dir into the live Jinja env 
-        web_app = self.serverapp.web_app if hasattr(self, "serverapp") else None
-        env = (web_app.settings.get("jinja2_env")
-               if web_app else self.settings.get("jinja2_env"))
+        # Ensure static search path includes yours (without dropping existing ones)
+        static_paths = self.static_paths[:] if hasattr(self, "static_paths") else []
+        if self.static_dir not in static_paths:
+            static_paths.insert(0, self.static_dir)
+        self.static_paths = static_paths
+        
+        
+        # from jinja2 import FileSystemLoader, ChoiceLoader
+        # my_loader = FileSystemLoader(os.path.join(HERE, "templates"))
 
-        if env is not None:
-            my_loader = FileSystemLoader(self.templates_dir)
-            if isinstance(env.loader, ChoiceLoader):
-                # Prepend so our templates override defaults
-                env.loader.loaders.insert(0, my_loader)
-            else:
-                # Wrap existing loader so both work
-                env.loader = ChoiceLoader([my_loader, env.loader])
+        # web_app = getattr(self, "serverapp", None).web_app if hasattr(self, "serverapp") else None
+        # print(web_app.settings)
+        # env = (web_app.settings.get("jinja2_env")
+        #      if web_app else self.settings.get("jinja2_env"))
+        # print(env.loader)
+        # if isinstance(env.loader, ChoiceLoader):
+        #    # put YOUR loader *first*
+        #    print('My Loader')
+        #    env.loader = ChoiceLoader([my_loader] + [ldr for ldr in env.loader.loaders])
+        # else:
+        #    print('Default Loader')
+        #    env.loader = ChoiceLoader([my_loader, env.loader])
 
-            # (Optional) keep a record for debugging/other extensions
-            paths = web_app.settings.get("template_paths", []) if web_app else self.settings.get("template_paths", [])
-            if self.templates_dir not in paths:
-                paths.insert(0, self.templates_dir)
-                if web_app:
-                    web_app.settings["template_paths"] = paths
-                else:
-                    self.settings["template_paths"] = paths
-        else:
-            # Fallback (shouldn't happen on normal Jupyter Server runs)
-            self.template_paths = [self.templates_dir]
+        # # debug
+        # print("Using:", env.loader)
+    #########################################################################################
+    # def initialize_templates(self):
+    #     from jinja2 import ChoiceLoader, FileSystemLoader
+    #     super().initialize_templates()
+
+    #     self.static_dir = os.path.join(HERE, "static")
+    #     self.templates_dir = os.path.join(HERE, "templates")
+
+    #     # Ensure static search path includes yours (without dropping existing ones)
+    #     static_paths = self.static_paths[:] if hasattr(self, "static_paths") else []
+    #     if self.static_dir not in static_paths:
+    #         static_paths.insert(0, self.static_dir)
+    #     self.static_paths = static_paths
+
+    #     # Get the single Jinja env used by ExtensionHandlerJinjaMixin
+    #     web_app = getattr(self, "serverapp", None).web_app if hasattr(self, "serverapp") else None
+    #     env = (web_app.settings.get("jinja2_env")
+    #         if web_app else self.settings.get("jinja2_env"))
+
+    #     my_loader = FileSystemLoader(self.templates_dir)
+
+    #     if isinstance(env.loader, ChoiceLoader):
+    #         # put YOUR loader *first*
+    #         env.loader = ChoiceLoader([my_loader] + [ldr for ldr in env.loader.loaders])
+    #     else:
+    #         env.loader = ChoiceLoader([my_loader, env.loader])
+
+    #     # Also update template_paths so other helpers/search use yours first
+    #     settings = web_app.settings if web_app else self.settings
+    #     paths = settings.get("template_paths", [])
+    #     if self.templates_dir not in paths:
+    #         settings["template_paths"] = [self.templates_dir] + paths
+
+    #     # Debug: print the resolved index.html source path
+    #     try:
+    #         src, path, _ = env.loader.get_source(env, "index.html")
+    #         print("USING TEMPLATE:", path)
+    #     except Exception as e:
+    #         print("TEMPLATE RESOLVE ERROR:", e)
+        
+    #     env = self.settings.get("jinja2_env")
+    #     try:
+    #         src, fname, _ = env.loader.get_source(env, "jupyter_server/browser-open.html")
+    #         print("✅ Using browser-open override from:", fname)
+    #         print(src[:200])
+    #     except Exception as e:
+    #         print("❌ Could not resolve browser-open.html:", e)
 
     def initialize_settings(self):
         super().initialize_settings()
         self.settings.setdefault("notebooks_dir", os.getcwd())
+
+        from jinja2 import FileSystemLoader, ChoiceLoader
+
+        templates_dir = os.path.join(HERE, "templates")
+        loader = FileSystemLoader(templates_dir)
+
+        # this is ALWAYS the real env used by render_template
+        env = self.settings.get("jinja2_env")
+        if env is None:
+            print("❌ jinja2_env missing")
+            return
+
+        # prepend your loader so it has priority
+        if isinstance(env.loader, ChoiceLoader):
+            env.loader.loaders.insert(0, loader)
+        else:
+            env.loader = ChoiceLoader([loader, env.loader])
+
+        if env:
+            env.globals.setdefault("page_title", MAIN_CONFIG.get("title", "Mercury"))
 
     def initialize(self, argv=None):
         super().initialize()

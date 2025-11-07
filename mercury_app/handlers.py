@@ -120,12 +120,9 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
         page_config = self.get_page_config(path)
         page_config["theme"] = THEME
 
-        print('*'*22)
-        print(page_config)
-
         return self.write(
             self.render_template(
-                "index.html",
+                "app.html",
                 static=self.static_url,
                 base_url=self.base_url,
                 token=self.settings["token"],

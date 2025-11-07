@@ -38,6 +38,8 @@ export const plugin: JupyterFrontEndPlugin<void> = {
     sessionContextDialogs: ISessionContextDialogs | null,
     translator: ITranslator | null
   ) => {
+    console.log('My opener');
+
     const { mimeTypeService } = editorServices ?? {};
     Promise.all([app.started, app.restored]).then(async () => {
       const notebookPath = PageConfig.getOption('notebookPath');

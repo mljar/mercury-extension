@@ -4,7 +4,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{page_config['appName'] | e}} test</title>
+  <title>{{page_title or 'Mercury'}}</title>
+  <link id="favicon" rel="shortcut icon" type="image/x-icon" href="{{ static_url("mercury/logo/favicon.ico") }}">
 
   <style>
     /* Base reset / typography */
@@ -162,7 +163,7 @@
 
   <header class="hdr" role="banner">
     <div class="hdr-inner">
-      <a class="brand" href="{{ base_url or '/' }}">{{page_config['title'] or 'Mercury'}}</a>
+      <a class="brand" href="{{ base_url or '/' }}">{{page_config['title'] or 'Mercury'}} my app template</a>
       <div style="position:relative">
         <button id="nbBtn" type="button" class="btn" aria-haspopup="menu" aria-expanded="false">
           Notebooks

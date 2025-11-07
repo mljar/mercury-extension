@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mercury — Notebooks</title>
+  <title>{{page_title or 'Mercury'}}</title>
+  <link id="favicon" rel="shortcut icon" type="image/x-icon" href="{{ static_url("mercury/logo/favicon.ico") }}">
   <style>
     :root { color-scheme: light dark; }
     html, body { height: 100%; }
@@ -156,7 +157,7 @@
   <!-- Header -->
   <header class="hdr" role="banner">
     <div class="hdr-inner">
-      <a class="brand" href="{{ base_url or '/' }}">{{ title or 'Mercury'}}</a>
+      <a class="brand" href="{{ base_url or '/' }}">{{ page_title or 'Mercury'}}</a>
 
       <!-- Render menu button ONLY when there are notebooks -->
       {% if notebooks %}
