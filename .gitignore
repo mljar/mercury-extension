@@ -5,7 +5,7 @@ portal/backend/frontend-dist/
 
 *.bundle.*
 lib/
-node_modules/
+*/node_modules/
 *.log
 .eslintcache
 .stylelintcache
