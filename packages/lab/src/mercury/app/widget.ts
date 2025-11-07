@@ -232,7 +232,6 @@ export class AppWidget extends Panel {
     const pageConfig = getPageConfig();
     void fetchTheme(pageConfig.baseUrl || '');
 
-    this._showCode = !!pageConfig.showCode;
     this._model = model;
 
     this.id = 'mercury-main-panel';

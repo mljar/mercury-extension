@@ -1,9 +1,23 @@
+import json
+import logging
 import os
 import sys
 from os.path import join as pjoin
-from traitlets import Integer, Bool
 
-import logging
+from jupyterlab.commands import (get_app_dir, get_user_settings_dir,
+                                 get_workspaces_dir)
+from jupyterlab_server import LabServerApp
+from traitlets import Bool, Integer
+
+from ._version import __version__
+from .custom_contents_handler import MercuryContentsHandler
+from .handlers import MercuryHandler
+from .idle_timeout import (TimeoutActivityTransform, TimeoutManager,
+                           patch_kernel_websocket_handler)
+from .notebooks import NotebooksAPIHandler
+from .root import RootIndexHandler
+from .theme_handler import ThemeHandler
+
 #logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(name)s:%(message)s")
 # for name in ("mercury.app", "mercury.idle_timeout"):
 #     logger = logging.getLogger(name)
@@ -13,17 +27,6 @@ import logging
 #         handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
 #         logger.addHandler(handler)
             
-
-from jupyterlab_server import LabServerApp
-from jupyterlab.commands import get_app_dir, get_user_settings_dir, get_workspaces_dir
-
-from ._version import __version__
-from .handlers import MercuryHandler
-from .theme_handler import ThemeHandler
-from .custom_contents_handler import MercuryContentsHandler
-
-from .idle_timeout import TimeoutManager, TimeoutActivityTransform, patch_kernel_websocket_handler
-
 logger = logging.getLogger("mercury.app")
 
 class SuppressKernelDoesNotExist(logging.Filter):
@@ -49,7 +52,7 @@ class MercuryApp(LabServerApp):
     version = version
     app_version = version
     extension_url = "/mercury"
-    default_url = "/mercury"
+    default_url = "/"
     file_url_prefix = "/mercury"
     load_other_extensions = True
     app_dir = app_dir
@@ -65,14 +68,18 @@ class MercuryApp(LabServerApp):
         help="Timeout (in seconds) before shutting down if idle. 0 disables timeout."
     ).tag(config=True)
 
-    show_code = Bool(
-        False,  
-        help="Show code cells' input area."
-    ).tag(config=True)
+    aliases = {
+        "timeout": "MercuryApp.timeout",
+    }
 
     def initialize_handlers(self):
         from jupyter_server.base.handlers import path_regex
          # new theme API (must come first)
+
+        self.handlers.append((r"/", RootIndexHandler))
+        # Add the notebooks API endpoint
+        self.handlers.append(("/mercury/api/notebooks", NotebooksAPIHandler))
+
         self.handlers.append(("/mercury/api/theme", ThemeHandler))
 
         # generic Mercury handler (catch-all)
@@ -83,41 +90,45 @@ class MercuryApp(LabServerApp):
         super().initialize_handlers()
 
     def initialize_templates(self):
+        from jinja2 import ChoiceLoader, FileSystemLoader
+
+        # Build Jupyter's default env first
         super().initialize_templates()
+
+        # Template & static dirs
         self.static_dir = os.path.join(HERE, "static")
         self.templates_dir = os.path.join(HERE, "templates")
         self.static_paths = [self.static_dir]
-        self.template_paths = [self.templates_dir]
+
+        # Inject our templates dir into the live Jinja env 
+        web_app = self.serverapp.web_app if hasattr(self, "serverapp") else None
+        env = (web_app.settings.get("jinja2_env")
+               if web_app else self.settings.get("jinja2_env"))
+
+        if env is not None:
+            my_loader = FileSystemLoader(self.templates_dir)
+            if isinstance(env.loader, ChoiceLoader):
+                # Prepend so our templates override defaults
+                env.loader.loaders.insert(0, my_loader)
+            else:
+                # Wrap existing loader so both work
+                env.loader = ChoiceLoader([my_loader, env.loader])
+
+            # (Optional) keep a record for debugging/other extensions
+            paths = web_app.settings.get("template_paths", []) if web_app else self.settings.get("template_paths", [])
+            if self.templates_dir not in paths:
+                paths.insert(0, self.templates_dir)
+                if web_app:
+                    web_app.settings["template_paths"] = paths
+                else:
+                    self.settings["template_paths"] = paths
+        else:
+            # Fallback (shouldn't happen on normal Jupyter Server runs)
+            self.template_paths = [self.templates_dir]
 
     def initialize_settings(self):
         super().initialize_settings()
-        self.settings['show_code'] = self.show_code
-        print('Settings update -------------------------4444')
-        allowed = [
-            "'self'",
-            #"http://localhost:*",
-            "http://127.0.0.1:8000",
-            #"http://[::1]:*",
-            # if you ever run over https in dev:
-            #"https://localhost:*",
-            #"https://127.0.0.1:*",
-            #"https://[::1]:*",
-        ]
-        self.settings.update({
-            "headers": {
-                "Content-Security-Policy": "frame-ancestors " + " ".join(allowed),
-                # CORS is unrelated to iframes, but keep if you need XHR:
-                "Access-Control-Allow-Origin": "http://127.0.0.1:8000",
-                # Make sure no legacy header fights your CSP:
-                "X-Frame-Options": "ALLOWALL",
-            }
-        })
-        # self.settings.update({
-        #     "headers": {
-        #         "Content-Security-Policy": "frame-ancestors 'self' http://localhost:3000",
-        #         "Access-Control-Allow-Origin": "http://localhost:3000"
-        #     }
-        # })
+        self.settings.setdefault("notebooks_dir", os.getcwd())
 
     def initialize(self, argv=None):
         super().initialize()

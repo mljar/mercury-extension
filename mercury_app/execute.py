@@ -10,7 +10,7 @@
 from nbclient.client import NotebookClient
 from nbclient.exceptions import CellExecutionError
 from nbconvert.preprocessors.clearoutput import ClearOutputPreprocessor
-from traitlets import Bool, Unicode, Integer
+from traitlets import Bool, Integer, Unicode
 
 
 def strip_code_cell_warnings(cell):

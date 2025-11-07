@@ -2,26 +2,44 @@ from pathlib import Path
 from typing import Optional
 
 from jupyter_server.base.handlers import JupyterHandler
-from jupyter_server.extension.handler import ExtensionHandlerJinjaMixin, ExtensionHandlerMixin
-from jupyter_server.utils import ensure_async, url_path_join as ujoin
-from jupyterlab_server.config import get_page_config, recursive_update, LabConfig
-from jupyterlab_server.handlers import is_url, _camelCase
+from jupyter_server.extension.handler import (ExtensionHandlerJinjaMixin,
+                                              ExtensionHandlerMixin)
+from jupyter_server.utils import ensure_async
+from jupyter_server.utils import url_path_join as ujoin
+from jupyterlab_server.config import (LabConfig, get_page_config,
+                                      recursive_update)
+from jupyterlab_server.handlers import _camelCase, is_url
 from tornado import web
 
 from ._version import __version__
+
 version = __version__
 
-import toml
 from pathlib import Path
 
-def load_theme(config_path="config.toml"):
+import toml
+
+
+def load_config(config_path="config.toml"):
     config_file = Path(config_path)
     if not config_file.exists():
-        return {}
-    config = toml.load(config_file)
-    return config.get("theme", {})
+        return {"theme": {}, "main": {}, "welcome": {}}
 
-THEME = load_theme()
+    config = toml.load(config_file)
+
+    # Ensure missing sections return empty dicts
+    return {
+        "theme": config.get("theme", {}),
+        "main": config.get("main", {}),
+        "welcome": config.get("welcome", {})
+    }
+
+CONFIG = load_config()
+
+THEME = CONFIG["theme"]
+MAIN_CONFIG = CONFIG["main"]
+WELCOME_CONFIG = CONFIG["welcome"]
+
 
 class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterHandler):
     """Render the Mercury app."""
@@ -39,6 +57,7 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             "fullStaticUrl": ujoin(self.base_url, "static", self.name),
             "frontendUrl": ujoin(self.base_url, "mercury/"),
             "notebookPath": notebook_path,
+            "title": MAIN_CONFIG.get("title", "Mercury"), 
         }
 
         mathjax_config = self.settings.get("mathjax_config", "TeX-AMS_HTML-full,Safe")
@@ -99,8 +118,10 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
             )
 
         page_config = self.get_page_config(path)
-        page_config["showCode"] = self.settings.get("show_code", False)
         page_config["theme"] = THEME
+
+        print('*'*22)
+        print(page_config)
 
         return self.write(
             self.render_template(

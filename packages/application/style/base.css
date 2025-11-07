@@ -6,6 +6,11 @@
   background-color: var(--jp-layout-color0);
 }
 
+.mercury-panel-toolbar {
+  height: 56px;
+  background-color: black;
+}
+
 .mercury-loader-container {
   width: 100vw;
   height: 100vh;

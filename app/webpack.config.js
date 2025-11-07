@@ -156,9 +156,9 @@ const entryPoint = path.join(buildDir, 'bootstrap.js');
 const bootstrap = 'import("./index.js");';
 fs.writeFileSync(entryPoint, bootstrap);
 
-if (process.argv.includes('--analyze')) {
-  extras.push(new BundleAnalyzerPlugin());
-}
+// if (process.argv.includes('--analyze')) {
+//   extras.push(new BundleAnalyzerPlugin());
+// }
 
 module.exports = [
   merge(baseConfig, {
@@ -182,7 +182,8 @@ module.exports = [
         },
         name: 'CORE_FEDERATION',
         shared: createShared(data)
-      })
+      }),
+      ...(process.argv.includes('--analyze') ? [new BundleAnalyzerPlugin()] : [])
     ],
     module: {
       rules: [
