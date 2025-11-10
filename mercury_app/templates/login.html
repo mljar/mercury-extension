@@ -102,7 +102,7 @@
         <div class="mrc-row">
           <label for="password_input" class="mrc-label">
             {% if token_available %}
-              <strong>{% trans %}Password or token:{% endtrans %}</strong>
+              <strong>{% trans %}Password:{% endtrans %}</strong>
             {% else %}
               <strong>{% trans %}Password:{% endtrans %}</strong>
             {% endif %}
@@ -130,11 +130,11 @@
 
     {% if token_available %}
       {% block token_message %}
-      <div class="mrc-row">
+      <!-- <div class="mrc-row">
         <div class="rendered_html">
           <div class="mrc-subtitle">Token authentication is enabled</div>
         </div>
-      </div>
+      </div> -->
       {% endblock token_message %}
     {% endif %}
   </div>
