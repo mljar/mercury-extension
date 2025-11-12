@@ -36,6 +36,7 @@ export const plugin: JupyterFrontEndPlugin<void> = {
     const { mimeTypeService } = editorServices ?? {};
     Promise.all([app.started, app.restored]).then(async () => {
       const notebookPath = PageConfig.getOption('notebookPath');
+      console.log('notebookPath', notebookPath);
       const mercuryPanel = documentManager.open(
         notebookPath,
         'Mercury'
@@ -70,19 +71,21 @@ export const plugin: JupyterFrontEndPlugin<void> = {
       // ---------- Execute notebook cells once kernel is ready ----------
       mercuryPanel.context.ready.then(async () => {
         let session = mercuryPanel.context.sessionContext.session;
+        console.log('session', session);
         if (!session) {
           const [, changes] = await signalToPromise(
             mercuryPanel.context.sessionContext.sessionChanged
           );
           session = changes.newValue!;
         }
-
+        console.log('session2', session);
         let kernelConnection = session?.kernel;
         if (!kernelConnection) {
           const [, changes] = await signalToPromise(session.kernelChanged);
           kernelConnection = changes.newValue!;
         }
 
+        console.log(kernelConnection);
         const executeAll = async () => {
           if (
             kernelConnection?.connectionStatus === 'connected' &&

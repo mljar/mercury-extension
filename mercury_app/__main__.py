@@ -51,6 +51,10 @@ def _parse_and_inject(argv):
     if not user_set_token:
         new_argv.append("--IdentityProvider.token=''")
 
+    new_argv.append("--ContentsManager.allow_hidden=True")
+    new_argv.append("--MappingKernelManager.default_kernel_name='python3'")
+    
+
     return new_argv
 
 if __name__ == "__main__":

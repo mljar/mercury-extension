@@ -22,6 +22,8 @@ from .theme_handler import ThemeHandler
 
 from traitlets.config import Config
 
+from .mercury_hybrid_cm import HybridContentsManager
+
 class SuppressKernelDoesNotExist(logging.Filter):
     def filter(self, record):
         if 'Kernel does not exist:' in str(record.getMessage()):
@@ -59,9 +61,15 @@ class MercuryApp(LabServerApp):
         help="Timeout (in seconds) before shutting down if idle. 0 disables timeout."
     ).tag(config=True)
 
+    keepSession = Bool(
+        False,
+        help="Keep the same session for all users."
+    ).tag(config=True)
+
     aliases = {
         "timeout": "MercuryApp.timeout",
-        "token": "IdentityProvider.token"
+        "token": "IdentityProvider.token",
+        "keepSession": "MercuryApp.keepSession"
     }
 
     def initialize_handlers(self):
@@ -84,6 +92,20 @@ class MercuryApp(LabServerApp):
 
     def initialize_settings(self):
         super().initialize_settings()
+
+        sa = getattr(self, "serverapp", None)
+        if not sa:
+            return
+
+        cm = getattr(sa, "contents_manager", None)
+        if not cm or getattr(cm, "_mercury_wrapped", False):
+            return
+
+        wrapped = HybridContentsManager.wrap(cm)
+        setattr(wrapped, "_mercury_wrapped", True)
+        sa.contents_manager = wrapped
+        self.settings["contents_manager"] = wrapped
+
         self.settings.setdefault("notebooks_dir", os.getcwd())
 
         from jinja2 import FileSystemLoader, ChoiceLoader
@@ -113,7 +135,7 @@ class MercuryApp(LabServerApp):
             self.serverapp.web_app.add_transform(TimeoutActivityTransform)
             patch_kernel_websocket_handler()
 
-
+        
 main = launch_new_instance = MercuryApp.launch_instance
 
 if __name__ == "__main__":
