@@ -93,18 +93,17 @@ class MercuryApp(LabServerApp):
     def initialize_settings(self):
         super().initialize_settings()
 
-        sa = getattr(self, "serverapp", None)
-        if not sa:
-            return
-
-        cm = getattr(sa, "contents_manager", None)
-        if not cm or getattr(cm, "_mercury_wrapped", False):
-            return
-
-        wrapped = HybridContentsManager.wrap(cm)
-        setattr(wrapped, "_mercury_wrapped", True)
-        sa.contents_manager = wrapped
-        self.settings["contents_manager"] = wrapped
+        if sys.argv[0].endswith("mercury_app/__main__.py"):
+            sa = getattr(self, "serverapp", None)
+            if not sa:
+                return
+            cm = getattr(sa, "contents_manager", None)
+            if not cm or getattr(cm, "_mercury_wrapped", False):
+                return
+            wrapped = HybridContentsManager.wrap(cm)
+            setattr(wrapped, "_mercury_wrapped", True)
+            sa.contents_manager = wrapped
+            self.settings["contents_manager"] = wrapped
 
         self.settings.setdefault("notebooks_dir", os.getcwd())
 
