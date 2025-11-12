@@ -234,6 +234,8 @@ class MercuryHandler(ExtensionHandlerJinjaMixin, ExtensionHandlerMixin, JupyterH
     @web.authenticated
     async def get(self, path: str = None):
         self.log.info("[Mercury] GET %s", path)
+        if not path.endswith(".ipynb"):
+            path += ".ipynb"
         # Validate the source notebook path
         if not (
             path

@@ -40,6 +40,7 @@ class NotebooksAPIHandler(JupyterHandler):
                 "name": it["name"],
                 "description": it["description"],
                 "href": href,
+                "slug": href[:-6], # remove .ipynb extension
             }
 
             # Copy known extras if present

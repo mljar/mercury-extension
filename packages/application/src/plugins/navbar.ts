@@ -3,6 +3,7 @@ type NotebookItem = {
   name: string;
   description?: string;
   href: string;
+  slug: string;
   thumbnail_bg?: string;
   thumbnail_text?: string;
   thumbnail_text_color?: string;
@@ -236,7 +237,7 @@ export class MercuryNavbar {
     for (const nb of items) {
       const a = document.createElement('a');
       a.className = 'mrc-menu-item';
-      a.href = nb.href || '#';
+      a.href = nb.slug || '#';
       a.setAttribute('role', 'menuitem');
 
       const t = document.createElement('div');

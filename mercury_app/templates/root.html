@@ -255,7 +255,7 @@
         {% if notebooks %}
           {% for nb in notebooks %}
             <a class="card nb-card"
-               href="{{ nb.href }}"
+               href="{{ nb.slug }}"
                data-name="{{ nb.name|e }}"
                data-desc="{{ (nb.description or '')|e }}"
                data-thumb-text="{{ (nb.thumbnail_text or '📒')|e }}"

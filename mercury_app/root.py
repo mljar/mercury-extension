@@ -40,6 +40,7 @@ class RootIndexHandler(JupyterHandler):
                 "name": it["name"],
                 "description": it["description"],
                 "href": href,
+                "slug": href[:-6] # remove .ipynb file extension
             }
 
             # Copy known extras if present (keeps your template props working)
