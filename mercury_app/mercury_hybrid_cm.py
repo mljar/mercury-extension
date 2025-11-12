@@ -190,7 +190,21 @@ class HybridContentsManager(ContentsManager):
                 raise HTTPError(404, f"Shadow notebook not found: {path}")
             self.log.debug("[MercuryHybridCM] GET (shadow) HIT: %s content=%s", path, content)
             model = self._mem.get(path)
-            return model if content else {k: v for k, v in model.items() if k != "content"}
+
+            if content:
+                # opcjonalnie: sanityzacja kernelspec jak w gałęzi "real"
+                try:
+                    if isinstance(model.get("content"), dict):
+                        model["content"] = self._ensure_valid_kernelspec(model["content"])
+                except Exception as e:
+                    self.log.exception("[MercuryHybridCM] kernelspec sanitize (get shadow) failed for %s: %s", path, e)
+                return model
+
+            # content=False → klucz ma być, ale = None
+            out = dict(model)
+            out["content"] = None
+            out["format"] = None
+            return out
 
         self.log.debug("[MercuryHybridCM] → GET delegate: %s", path)
         model = await ensure_async(self.real_cm.get(path, content=content, type=type, format=format))
@@ -209,10 +223,16 @@ class HybridContentsManager(ContentsManager):
             if model.get("type") != "notebook" or model.get("format") != "json":
                 self.log.warning("[MercuryHybridCM] SAVE (shadow) rejected non-notebook: %s", path)
                 raise HTTPError(400, "Only notebook JSON supported in shadow area")
+
             nb = model.get("content") or {}
             saved = self._mem.save_nb(path, nb)
             self.log.debug("[MercuryHybridCM] SAVE (shadow): %s", path)
-            return {k: v for k, v in saved.items() if k != "content"}
+
+            # ⇩ Walidator po SAVE oczekuje: content=None i format=None
+            out = {k: v for k, v in saved.items() if k != "content"}
+            out["content"] = None
+            out["format"] = None
+            return out
 
         # sanitize before persisting so future opens also work
         try:

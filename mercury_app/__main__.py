@@ -57,12 +57,16 @@ def _parse_and_inject(argv):
 
     return new_argv
 
-if __name__ == "__main__":
-    # display logo and version
+
+def main(argv=None):
+    """Console script entrypoint."""
+    if argv is None:
+        argv = sys.argv
     print(logo)
     print(f"Version: {__version__}")
-    # parse and inject arguments
-    sys.argv = _parse_and_inject(sys.argv)
-    # start mercury server
-    from mercury_app.app import main 
-    sys.exit(main())
+    sys.argv = _parse_and_inject(argv)
+    from mercury_app.app import main as _app_main
+    return _app_main()
+
+if __name__ == "__main__":
+    raise SystemExit(main())

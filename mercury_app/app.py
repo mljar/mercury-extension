@@ -69,7 +69,7 @@ class MercuryApp(LabServerApp):
     aliases = {
         "timeout": "MercuryApp.timeout",
         "token": "IdentityProvider.token",
-        "keepSession": "MercuryApp.keepSession"
+        "keep-session": "MercuryApp.keepSession"
     }
 
     def initialize_handlers(self):
