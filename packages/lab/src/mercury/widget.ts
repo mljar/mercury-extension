@@ -95,7 +95,6 @@ export class MercuryWidget extends DocumentWidget<MercuryPanel, INotebookModel> 
     this.addClass('jp-NotebookPanel');
 
     if (inJupyterLab()) {
-      console.log('tooooooooooooool');
       this.toolbar.addClass('jp-NotebookPanel-toolbar');
       this.toolbar.addClass('mercury-Toolbar');
 

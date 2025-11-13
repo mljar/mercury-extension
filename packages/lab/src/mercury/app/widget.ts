@@ -1234,6 +1234,12 @@ export class AppWidget extends Panel {
       w => (w as any).model?.length > 0
     );
 
+    console.log(
+      'updatePanelVisibility',
+      leftContentHasOutputs,
+      bottomHasContent
+    );
+
     if (!leftContentHasOutputs) {
       this._left?.hide();
       if (this._lastLeftVisible !== false) this._split?.setRelativeSizes([0, 1]);
@@ -1243,6 +1249,8 @@ export class AppWidget extends Panel {
     }
     this._lastLeftVisible = leftContentHasOutputs;
 
+    // refresh bottom height
+    void this._rightBottom.node.offsetHeight;
     if (!bottomHasContent) {
       this._rightBottom?.hide();
       if (this._lastBottomVisible !== false) {
@@ -1250,12 +1258,9 @@ export class AppWidget extends Panel {
       }
     } else {
       this._rightBottom?.show();
-      if (this._lastBottomVisible !== true) {
-        this.adjustBottomHeight();
-        //this._rightSplit?.setRelativeSizes([TOP_RATIO, BOTTOM_RATIO]);
-        // Measure after layout settles
-        requestAnimationFrame(() => this.adjustBottomHeight());
-      }
+      this.adjustBottomHeight();
+      // Measure after layout settles
+      requestAnimationFrame(() => this.adjustBottomHeight());
     }
     this._lastBottomVisible = bottomHasContent;
   }
@@ -1263,10 +1268,13 @@ export class AppWidget extends Panel {
   private static readonly MAX_BOTTOM_PX = 280;
 
   private adjustBottomHeight(maxPx = AppWidget.MAX_BOTTOM_PX): void {
-    if (!this._rightSplit || !this._rightBottom) return;
+    if (!this._rightSplit || !this._rightBottom) {
+      return;
+    }
 
     // If the split (or bottom) isn’t laid out yet, try again next frame
     const totalH = this._rightSplit.node.clientHeight || 0;
+
     if (totalH === 0) {
       requestAnimationFrame(() => this.adjustBottomHeight(maxPx));
       return;
@@ -1277,15 +1285,15 @@ export class AppWidget extends Panel {
       maxPx,
       Math.max(0, this._rightBottom.node.scrollHeight)
     );
-
     // Convert to ratios for SplitPanel
-    const bottomRatio = Math.max(0, Math.min(neededPx / totalH, 1) * 1.1);
+    const bottomRatio = Math.max(0, Math.min(neededPx / totalH, 1) * 1.0);
     //const topRatio = 1 - bottomRatio;
 
-    // If the content is tiny, keep a thin but visible rail (e.g., 8px)
-    const minBottomPx = 8;
+    // If the content is tiny, keep a thin but visible rail (e.g., 32px)
+    const minBottomPx = 32;
     const minBottomRatio = Math.min(minBottomPx / totalH, 0.05); // up to 5%
-    const finalBottom = bottomRatio > 0 ? Math.max(bottomRatio, minBottomRatio) : 0;
+    const finalBottom =
+      bottomRatio > 0 ? Math.max(bottomRatio, minBottomRatio) : 0;
 
     this._rightSplit.setRelativeSizes([1 - finalBottom, finalBottom]);
 

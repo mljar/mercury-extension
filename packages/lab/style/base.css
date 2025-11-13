@@ -107,8 +107,10 @@
 }
 
 .mercury-left-panel {
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-top: 5px;
+  padding-bottom: 5px;
   overflow: hidden auto;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 10%);
   min-width: 250px;
@@ -125,16 +127,20 @@
 }
 
 .mercury-right-top-panel {
-  padding-top: 10px;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-top: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
 }
 
 .mercury-right-bottom-panel {
+  overflow: hidden !important;  
   border-top: 1px solid var(--jp-border-color2);
-  padding-top: 10px;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-top: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
+
 }
 
 /* Hide output prompt in sidebar */

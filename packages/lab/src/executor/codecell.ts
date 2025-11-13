@@ -141,7 +141,6 @@ export async function executeSilently(
 export async function executeWidgetsManagerClearValues(
   sessionContext: ISessionContext
 ): Promise<void> {
-  console.log('WidgetsManager.clear()');
   const clearCode = `
 try:
     from mercury.manager import WidgetsManager

@@ -51,7 +51,7 @@ class ColumnOutput(widgets.Output):
 
 def Columns(
     n=2,
-    min_width="240px",
+    min_width="100px",
     gap="16px",
     border=None,
     position="inline",
@@ -64,7 +64,7 @@ def Columns(
     ----------
     n : int
         Number of columns.
-    min_width : str
+    min_width : str or None
         Minimum width for each column (e.g. '240px').
     gap : str
         Gap between columns (e.g. '16px').
