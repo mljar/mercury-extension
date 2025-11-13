@@ -141,15 +141,12 @@ export async function executeSilently(
 export async function executeWidgetsManagerClearValues(
   sessionContext: ISessionContext
 ): Promise<void> {
-  // Try a couple of import paths, silently
+  console.log('WidgetsManager.clear()');
   const clearCode = `
 try:
-    from mercury.widgets.manager import WidgetsManager
+    from mercury.manager import WidgetsManager
 except Exception:
-    try:
-        from widgets.manager import WidgetsManager
-    except Exception:
-        WidgetsManager = None
+    WidgetsManager = None
 if WidgetsManager is not None:
     WidgetsManager.clear()
 `;
