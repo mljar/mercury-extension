@@ -8,34 +8,34 @@ message = ""
 
 [theme]
 # Base
-base = "light" 
+#base = "light" 
 
 # Font
-font_family = "Arial, sans-serif"
-font_size = "12px"
-font_weight = "normal"
-heading_font_size = "18px"
-heading_font_weight = "bold"
-code_font_family = "Courier New, monospace"
-code_font_size = "13px"
-code_font_weight = "400"
+#font_family = "Arial, sans-serif"
+#font_size = "12px"
+#font_weight = "normal"
+#heading_font_size = "18px"
+#heading_font_weight = "bold"
+#code_font_family = "Courier New, monospace"
+#code_font_size = "13px"
+#code_font_weight = "400"
 
 # Text
-text_color = "#222222"
-link_color = "#007bff"
-link_underline = true
+#text_color = "#222222"
+#link_color = "#007bff"
+#link_underline = true
 
 # Colors
-primary_color = "#007bff"
-secondary_color = "#6c757d"
-background_color = "#ffffff"
-sidebar_background_color = "eaeaea"
+#primary_color = "#007bff"
+#secondary_color = "#6c757d"
+#background_color = "#ffffff"
+#sidebar_background_color = "eaeaea"
 # "f8f9fa"
-widget_background_color = "#ebf0fa"
+#widget_background_color = "#ebf0fa"
 
 
 # Borders
-border_radius = "4px"
-border_color = "#cccccc"
-border_visible = true
-sidebar_border_visible = true
+#border_radius = "4px"
+#border_color = "#cccccc"
+#border_visible = true
+#sidebar_border_visible = true
