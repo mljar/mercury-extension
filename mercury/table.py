@@ -3,7 +3,7 @@ import json
 import pandas as pd
 from IPython.display import HTML
 
-def Table(df: pd.DataFrame, height: int = 420):
+def Table(df: pd.DataFrame):
     grid_id = f"aggrid_{uuid.uuid4().hex}"
 
     data = df.to_dict(orient="records")
