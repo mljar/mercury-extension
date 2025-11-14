@@ -96,6 +96,7 @@ export class MercuryWidget extends DocumentWidget<MercuryPanel, INotebookModel> 
 
     if (inJupyterLab()) {
       this.toolbar.addClass('jp-NotebookPanel-toolbar');
+      this.toolbar.addClass('mercury-Toolbar');
 
       const scheduleSave = debounce(() => {
         void context.save();
@@ -289,7 +290,10 @@ export class MercuryWidget extends DocumentWidget<MercuryPanel, INotebookModel> 
         void context.save();
       });
 
-      this.toolbar.addItem('auto-rerun', new Widget({ node: autoRerunWrap }));
+      // this.toolbar.addItem('auto-rerun', new Widget({ node: autoRerunWrap }));
+      const autoRerunWidget = new Widget({ node: autoRerunWrap });
+      autoRerunWidget.addClass('mercury-toolbar-auto-rerun');
+      this.toolbar.addItem('auto-rerun', autoRerunWidget);
     }
   }
 }

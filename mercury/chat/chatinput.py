@@ -29,6 +29,7 @@ class ChatInputWidget(anywidget.AnyWidget):
 
     _esm = """
     function render({ model, el }) {
+      el.style.flex = "0 0 auto";
       const container = document.createElement("div");
       container.classList.add("mljar-chatinput-container");
 

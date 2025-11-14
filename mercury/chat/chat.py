@@ -1,7 +1,7 @@
 import uuid
 import json
 import ipywidgets as widgets
-from IPython.display import display, Javascript
+from IPython.display import display, clear_output
 from .message import Message, MSG_CSS_CLASS
 
 
@@ -56,7 +56,7 @@ class Chat:
 
         # tiny Output used to run JS reliably after each render
         self._js = widgets.Output()
-
+        clear_output(wait=True)
         display(self.vbox, self._js)
 
     def _render(self):

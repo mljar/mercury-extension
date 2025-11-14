@@ -92,8 +92,9 @@ class MercuryApp(LabServerApp):
 
     def initialize_settings(self):
         super().initialize_settings()
-
-        if sys.argv[0].endswith("mercury_app/__main__.py"):
+        
+        if sys.argv[0].endswith("mercury_app/__main__.py") or \
+           sys.argv[0].endswith("mercury"):
             sa = getattr(self, "serverapp", None)
             if not sa:
                 return

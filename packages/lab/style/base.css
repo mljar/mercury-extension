@@ -1,3 +1,62 @@
+/* Make the Mercury toolbar a proper flex container that can shrink */
+/* Toolbar as flex container */
+.mercury-Toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-wrap: wrap;  /* we WANT wrapping */
+}
+
+/* Default order for toolbar items */
+.mercury-Toolbar > .jp-Toolbar-item {
+  order: 1;
+}
+
+/* Text inputs layout (like you already have) */
+.mercury-Toolbar .mercury-toolbar-title,
+.mercury-Toolbar .mercury-toolbar-desc,
+.mercury-Toolbar .mercury-toolbar-thumbtext {
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 150px;
+}
+
+/* Keep color + checkbox items compact */
+.mercury-Toolbar .mercury-toolbar-color,
+.mercury-Toolbar .mercury-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* 🔹 The 'More commands' opener (three dots) */
+.mercury-Toolbar > .jp-Toolbar-responsive-opener {
+  order: 2;          /* come AFTER normal items, but BEFORE auto-rerun */
+  margin-left: auto; /* push to the far right of the first row */
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+}
+
+/* 🔹 Auto re-run row on its own line, full width */
+.mercury-Toolbar > .jp-Toolbar-item.mercury-toolbar-auto-rerun {
+  order: 3;          /* always last */
+  flex: 1 1 100%;    /* take full row */
+}
+
+/* (Optional) remove weird height tricks that can misalign items */
+.mercury-toolbar-title,
+.mercury-toolbar-desc,
+.mercury-toolbar-thumbtext {
+  height: auto !important;  /* or a fixed px height if you prefer */
+}
+/******************************************************************************/
+
 .mercury-panel {
   padding: 0;
 }
@@ -48,8 +107,10 @@
 }
 
 .mercury-left-panel {
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-top: 5px;
+  padding-bottom: 5px;
   overflow: hidden auto;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 10%);
   min-width: 250px;
@@ -66,16 +127,20 @@
 }
 
 .mercury-right-top-panel {
-  padding-top: 10px;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-top: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
 }
 
 .mercury-right-bottom-panel {
+  overflow: hidden !important;  
   border-top: 1px solid var(--jp-border-color2);
-  padding-top: 10px;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-top: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
+
 }
 
 /* Hide output prompt in sidebar */
@@ -134,7 +199,9 @@
   box-sizing: border-box;
 }
 
+/*********************************************************/
 /* Mercury App Toolbar */
+
 .mercury-toolbar-title {
   width: 150px;
   border: 1px solid var(--jp-border-color2);
@@ -172,10 +239,9 @@
   color: var(--jp-ui-font-color1);
 }
 
-
 /* Mercury App Toolbar – Thumbnail Text */
 .mercury-toolbar-thumbtext {
-  width: 100px;                /* enough for ≤10 chars */
+  width: 100px; /* enough for ≤10 chars */
   border: 1px solid var(--jp-border-color2);
   border-radius: 4px;
   padding: 2px 6px;
@@ -198,7 +264,7 @@
   color: var(--jp-ui-font-color1);
 }
 
-.mercury-toolbar-color input[type="color"] {
+.mercury-toolbar-color input[type='color'] {
   width: 28px;
   height: 22px;
   padding: 0;
