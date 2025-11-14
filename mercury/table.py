@@ -3,7 +3,8 @@ import json
 import pandas as pd
 from IPython.display import HTML
 
-def Table(df: pd.DataFrame):
+
+def Table(df: pd.DataFrame, page_size: int = 50):
     grid_id = f"aggrid_{uuid.uuid4().hex}"
 
     data = df.to_dict(orient="records")
@@ -16,8 +17,33 @@ def Table(df: pd.DataFrame):
       #{grid_id} .ag-icon-asc,
       #{grid_id} .ag-icon-desc,
       #{grid_id} .ag-icon-sort-ascending,
-      #{grid_id} .ag-icon-sort-descending {{
+      #{grid_id} .ag-icon-sort-descending,
+      #{grid_id} .ag-paging-button .ag-icon,
+      #{grid_id} .ag-paging-panel .ag-icon,
+      #{grid_id} .ag-paging-button[ref="btFirst"],
+      #{grid_id} .ag-paging-button[ref="btLast"] {{
         display: none !important;
+      }}
+      
+      #{grid_id} .ag-paging-button::after {{
+        font-size: 14px;
+        padding: 0 6px;
+        cursor: pointer;
+        opacity: 0.8;
+        color: #bbb;
+        transition: color 0.2s ease;
+      }}
+
+      #{grid_id} .ag-paging-button[ref="btPrevious"]::after {{
+          content: "◄";
+      }}
+
+      #{grid_id} .ag-paging-button[ref="btNext"]::after {{
+          content: "►";
+      }}
+
+      #{grid_id} .ag-paging-button:hover::after {{
+          color: black;
       }}
 
       /* custom sort arrows */
@@ -69,6 +95,8 @@ def Table(df: pd.DataFrame):
           rowSelection: "multiple",
           domLayout: "autoHeight",
           suppressSizeToFit: false,
+          pagination: true,
+          paginationPageSize: {page_size},
 
           defaultColDef: {{
             sortable: true,
