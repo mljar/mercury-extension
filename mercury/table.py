@@ -39,9 +39,7 @@ def Table(df: pd.DataFrame):
 
     <script>
     (function() {{
-
-      const SCRIPT_URL =
-        "https://cdn.jsdelivr.net/npm/ag-grid-community@29.3.4/dist/ag-grid-community.min.js";
+      const SCRIPT_URL = "/files/mercury/external/ag-grid-community.min.js";
 
       document.querySelectorAll('script[src*="ag-grid-community"]').forEach(el => el.remove());
 
