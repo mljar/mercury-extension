@@ -28,20 +28,23 @@
         "url": "https://github.com/mljar/mercury-extension.git"
     },
     "scripts": {
-        "build": "jlpm workspaces foreach -Apt run build",
-        "build:prod": "jlpm workspaces foreach -Apt run build:prod",
-        "clean": "jlpm workspaces foreach -Apt run clean",
+        "build": "jlpm run clean && jlpm workspaces foreach -Atp run build && jlpm run check:artifacts",
+        "build:prod": "jlpm run clean:all && jlpm workspaces foreach -At run build:prod && jlpm run check:artifacts",
+        "clean": "jlpm workspaces foreach -At run clean",
+        "clean:all": "jlpm workspaces foreach -At run clean && jlpm workspace @mljar/mercury-extension run clean:labextension && jlpm workspace @mljar/mercury-extension run clean:lintcache && jlpm workspace mercury-app run clean:static",
+        "check:artifacts": "node -e \"const fs=require('fs'); const paths=['packages/application/lib/index.js','packages/lab/lib/index.js','mercury_app/static']; const missing=paths.filter(p=>!fs.existsSync(p)); if(missing.length){console.error('Missing artifacts:',missing.join(', ')); process.exit(1);} console.log('Artifacts OK');\"",
         "eslint": "jlpm eslint:check --fix",
         "eslint:check": "eslint . --cache --ext .ts,.tsx",
-        "lint": "jlpm stylelint && jlpm prettier && jlpm eslint",
-        "lint:check": "jlpm stylelint:check && jlpm prettier:check && jlpm eslint:check",
+        "stylelint": "jlpm stylelint:check --fix",
+        "stylelint:check": "stylelint --cache \"packages/*/style/**/*.css\"",
         "prettier": "jlpm prettier:base --write --list-different",
         "prettier:base": "prettier \"**/*{.ts,.tsx,.js,.jsx,.css,.json,.md}\"",
         "prettier:check": "jlpm prettier:base --check",
-        "stylelint": "jlpm stylelint:check --fix",
-        "stylelint:check": "stylelint --cache \"packages/*/style/**/*.css\"",
+        "lint": "jlpm stylelint && jlpm prettier && jlpm eslint",
+        "lint:check": "jlpm stylelint:check && jlpm prettier:check && jlpm eslint:check",
         "watch:app": "jlpm workspaces foreach --include \"mercury-app\" run watch",
-        "watch:lib": "jlpm workspaces foreach --include \"@mljar/mercury-extension\" run watch"
+        "watch:lib": "jlpm workspaces foreach --include \"@mljar/mercury-extension\" run watch",
+        "watch:all": "jlpm workspace mercury-application run watch & jlpm workspace @mljar/mercury-extension run watch & jlpm workspace mercury-app run watch"
     },
     "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^6.1.0",
