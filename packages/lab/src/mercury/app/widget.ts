@@ -460,11 +460,6 @@ export class AppWidget extends Panel {
           ? this._rightBottom
           : this._rightTop;
 
-    // Detach from old parent (if any) so we can reinsert in order
-    if (oa.parent?.layout && 'removeWidget' in oa.parent.layout) {
-      (oa.parent.layout as any).removeWidget(oa);
-    }
-
     // Compute stable insertion index from notebook order
     const order = this._cellOrder.get(cell.model.id);
     const kind = target === this._rightTop ? 'output' : 'other';
@@ -1164,8 +1159,6 @@ export class AppWidget extends Panel {
     return left;
   }
 
-
-
   private createRightPanels() {
     const rightTop = new Panel();
     rightTop.addClass('mercury-right-top-panel');
@@ -1232,12 +1225,6 @@ export class AppWidget extends Panel {
 
     const bottomHasContent = this.panelWidgets(this._rightBottom).some(
       w => (w as any).model?.length > 0
-    );
-
-    console.log(
-      'updatePanelVisibility',
-      leftContentHasOutputs,
-      bottomHasContent
     );
 
     if (!leftContentHasOutputs) {

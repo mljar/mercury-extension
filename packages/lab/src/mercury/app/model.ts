@@ -400,7 +400,6 @@ export class AppModel {
     _kernel: Kernel.IKernelConnection,
     status: Kernel.ConnectionStatus
   ): void => {
-    console.log('kernel status', status);
     // status is one of: 'connecting' | 'connected' | 'disconnected'
     if (status === 'disconnected') {
       void this._notifyKernelDisconnected();
@@ -656,7 +655,6 @@ export class AppModel {
       return null;
     }
   }
-
 
   /*************************************************
    * Internal: Notebook content change
