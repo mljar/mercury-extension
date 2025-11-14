@@ -30,43 +30,52 @@ class Indicator:
             width: 100%;
             display: flex;
             flex-direction: row;
-            gap: 5px;
+            flex-wrap: wrap;                
+            gap: 12px;
             justify-content: flex-start;
+            align-items: stretch;
+            box-sizing: border-box;
+            padding: 5px;
         }
         @media (max-width: 800px) {
             .mljar-indicator-row {
                 flex-direction: column;
             }
+            .mljar-indicator-card {
+                flex: 1 1 100%;
+                max-width: 100% !important;
+                min-width: 0;
+            }
         }
         .mljar-indicator-card {
-            flex: 1 1 0;
+            flex: 0 1 180px;                 
             background: var(--bg, #fff);
             border: 1px solid var(--border, #ebebeb);
-            border-radius: 12px;
-            padding: 26px 24px 18px 24px;
-            margin: 8px;
-            text-align: center;                
-            min-width: 180px;
-            max-width: 240px !important;
+            border-radius: 10px;
+            padding: 20px 18px 14px 18px;    
+            text-align: center;
+            min-width: 150px;               
+            max-width: 210px !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         .mljar-indicator-title {
-            font-size: 1.3em !important;
+            font-size: 1.25em !important;
             color: var(--label, #555);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important;
         }
         .mljar-indicator-value {
-            font-size: 2.7em;
+            font-size: 2.3em;                
             color: var(--value, #222);
             font-family: 'Menlo', 'Consolas', monospace;
-            margin-bottom: 12px;
+            
+            margin-bottom: 10px;
             letter-spacing: 1px;
         }
         .mljar-indicator-delta {
             display: inline-block;
-            padding: 0.28em 1.1em 0.28em 1.1em;
-            font-size: 1em;
+            padding: 0.24em 1em 0.24em 1em;
+            font-size: 0.95em;
             border-radius: 2em;
             margin-bottom: 4px;
             font-family: 'Menlo', monospace;
@@ -83,14 +92,7 @@ class Indicator:
         </style>
         """
 
-    def _repr_html_(self):
-        if isinstance(self.value, list):
-            cards = ""
-            for v in self.value:
-                if isinstance(v, Indicator):
-                    cards += v._repr_html_()
-            return f"{self.styles()}<div class='mljar-indicator-row'>{cards}</div>"
-
+    def _card_html(self):
         delta_html = ""
         if self.delta is not None:
             try:
@@ -105,7 +107,7 @@ class Indicator:
         label_html = f"<div class='mljar-indicator-title'>{self.label}</div>" if self.label else ""
         value_html = f"<div class='mljar-indicator-value'>{self.value}</div>"
 
-        return f"""{self.styles()}
+        return f"""
 <div class="mljar-indicator-card"
      style="--bg:{self.background_color};--border:{self.border_color};--value:{self.value_color};--label:{self.label_color};--green:{self.GREEN};--bg-green:{self.BG_GREEN};--red:{self.RED};--bg-red:{self.BG_RED}">
     {label_html}
@@ -114,3 +116,14 @@ class Indicator:
 </div>
 """
 
+    def _repr_html_(self):
+        # List of indicators -> one row that wraps
+        if isinstance(self.value, list):
+            cards = ""
+            for v in self.value:
+                if isinstance(v, Indicator):
+                    cards += v._card_html()
+            return f"{self.styles()}<div class='mljar-indicator-row'>{cards}</div>"
+
+        # Single indicator
+        return f"{self.styles()}{self._card_html()}"
