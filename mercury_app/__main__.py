@@ -62,8 +62,8 @@ def _parse_and_inject(argv):
     token_from_env = os.getenv("MERCURY_TOKEN")
 
     if token_from_cli:
-        # User already provided token → do nothing
-        pass
+        # User provided token
+        new_argv.append(f"--IdentityProvider.token='{token_from_cli}'")
     elif token_from_env:
         new_argv.append(f"--IdentityProvider.token='{token_from_env}'")
     else:
