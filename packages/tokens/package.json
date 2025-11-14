@@ -2,7 +2,7 @@
     "name": "@mljar/mercury-tokens",
     "version": "0.1.0",
     "description": "Shared tokens and interfaces for Mercury extensions.",
-    "license": "AGPL-3.0",
+    "license": "Apache-2.0",
     "main": "lib/index.js",
     "types": "lib/index.d.ts",
     "files": [

@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/mljar/mercury-extension/issues"
   },
-  "license": "AGPL-3.0",
+  "license": "Apache-2.0",
   "author": {
     "name": "MLJAR Sp. z o.o.",
     "email": "contact@mljar.com"
