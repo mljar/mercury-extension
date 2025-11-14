@@ -15,7 +15,7 @@ def Checkbox(*args, key: str = "", **kwargs):
     cb = Checkbox(label="Auto-refresh")               # toggle switch (default)
     cb = Checkbox(label="I agree", appearance="box")  # classic square checkbox
     """
-    code_uid = WidgetsManager.get_code_uid("Checkbox", key=key)
+    code_uid = WidgetsManager.get_code_uid("Checkbox", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

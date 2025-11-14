@@ -5,20 +5,9 @@ import json
 from .manager import WidgetsManager, MERCURY_MIMETYPE
 from .theme import THEME
 
-import hashlib
-
-def _config_hash(args, kwargs):
-    # prosto: użyj repr, żeby uniknąć problemów z JSON-owaniem np. numpy array
-    items = sorted(kwargs.items())
-    src = repr((args, items))
-    return hashlib.sha1(src.encode("utf-8")).hexdigest()[:8]
-
-
 
 def MultiSelect(*args, key: str = "", **kwargs):
-    cfg_hash = _config_hash(args, kwargs)
-    print(args, kwargs, cfg_hash)
-    code_uid = WidgetsManager.get_code_uid("MultiSelect", key=key)
+    code_uid = WidgetsManager.get_code_uid("MultiSelect", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

@@ -186,7 +186,9 @@ def Progressbar(label: str = "", value: float = 0, min: float = 0, max: float = 
     """
     _ensure_global_progress_styles()
 
-    code_uid = WidgetsManager.get_code_uid("Progress", key=key or label or "progress")
+    code_uid = WidgetsManager.get_code_uid("Progress", key=key or label or "progress",
+                    kwargs=dict(label=label, min=min, max=max, show_percent=show_percent,
+                    indeterminate=indeterminate))
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         container, handle = cached

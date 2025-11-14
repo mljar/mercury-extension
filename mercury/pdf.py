@@ -8,7 +8,7 @@ from .theme import THEME
 
 
 def PDF(*args, key="", **kwargs):
-    code_uid = WidgetsManager.get_code_uid("PDF", key=key)
+    code_uid = WidgetsManager.get_code_uid("PDF", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

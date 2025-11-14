@@ -3,8 +3,16 @@ import traitlets
 
 from .manager import WidgetsManager, MERCURY_MIMETYPE
 
+def _filter_identity_kwargs(d, exclude=("value", "data")):
+    # keep only config; drop state-like keys
+    return {k: v for k, v in d.items() if k not in exclude}
+
 def Download(data, filename="file.txt", label="Download", mime="text/plain", key="", is_base64=False, **kwargs):
-    code_uid = WidgetsManager.get_code_uid("Download", key=key)
+    id_kwargs = _filter_identity_kwargs(
+        dict(filename=filename, label=label, mime=mime, is_base64=is_base64, **kwargs),
+        exclude=("value", "data")
+    )
+    code_uid = WidgetsManager.get_code_uid("Download", key=key, kwargs=id_kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

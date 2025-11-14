@@ -87,7 +87,7 @@ def Expander(label="Details", expanded=False, key=""):
     """
     _ensure_global_expander_styles()
 
-    code_uid = WidgetsManager.get_code_uid("Expander", key=key)
+    code_uid = WidgetsManager.get_code_uid("Expander", key=key, kwargs=dict(label=label))
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         # Don't display again — that would append another copy in output.

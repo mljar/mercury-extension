@@ -7,7 +7,7 @@ from .theme import THEME
 
 
 def NumberInput(*args, key="", **kwargs):
-    code_uid = WidgetsManager.get_code_uid("NumberInput", key=key)
+    code_uid = WidgetsManager.get_code_uid("NumberInput", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

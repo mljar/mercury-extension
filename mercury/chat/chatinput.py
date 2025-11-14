@@ -6,7 +6,7 @@ from ..manager import WidgetsManager, MERCURY_MIMETYPE
 from ..theme import THEME
 
 def ChatInput(*args, key="", **kwargs):
-    code_uid = WidgetsManager.get_code_uid("ChatInput", key=key)
+    code_uid = WidgetsManager.get_code_uid("ChatInput", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

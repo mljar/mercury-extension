@@ -9,6 +9,35 @@ MERCURY_MIMETYPE = "application/mercury+json"
 class WidgetException(Exception):
     pass
 
+import hashlib
+
+def _config_hash(args, kwargs):
+    """Create a short, robust hash for widget configuration (excluding 'value')."""
+    try:
+        # Remove state-related keys
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k != "value" and k != "position" and k != "data"}
+
+        # Convert everything to safe strings
+        safe_args = tuple(_safe_str(a) for a in args)
+        safe_items = sorted((k, _safe_str(v)) for k, v in filtered_kwargs.items())
+
+        src = repr((safe_args, safe_items))
+        return hashlib.sha1(src.encode("utf-8")).hexdigest()[:8]
+    except Exception as e:
+        # Fallback if something unexpected happens
+        return "cfg_hash"
+
+def _safe_str(obj):
+    """Return a simple, stable string for hashing."""
+    if obj is None:
+        return "None"
+    try:
+        return str(obj)
+    except Exception:
+        try:
+            return repr(obj)
+        except Exception:
+            return "<?>"
 
 class WidgetsManager:
     widgets = {}  # model_id -> widget
@@ -16,7 +45,10 @@ class WidgetsManager:
     # preset_values = {} # url_key -> value
     
     @staticmethod
-    def get_code_uid(widget_type="widget", key="", index=None):
+    def get_code_uid(widget_type="widget", key="", index=None, args=[], kwargs={}):
+        # get hash of arguments
+        cfg_hash = _config_hash(args, kwargs)
+        
         # Find the frame for the user's notebook cell code
         user_frame = None
         for f in inspect.stack():
@@ -42,7 +74,7 @@ class WidgetsManager:
             if code_source else "nocell"
         )
 
-        uid = f"{widget_type}.{cell_hash}.{code_line}"
+        uid = f"{widget_type}.{cell_hash}.{code_line}.{cfg_hash}"
         if index is not None:
             uid += f".{index}"
         if key:

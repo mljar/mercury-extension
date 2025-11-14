@@ -323,7 +323,7 @@ class FileWidget(anywidget.AnyWidget):
 
 
 def File(label="Choose a file", max_file_size="100MB", key="", disabled=False, hidden=False, multiple=False):
-    code_uid = WidgetsManager.get_code_uid("File", key=key)
+    code_uid = WidgetsManager.get_code_uid("File", key=key, kwargs=dict(label=label, max_file_size=max_file_size, multiple=multiple))
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

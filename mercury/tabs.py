@@ -122,7 +122,8 @@ def Tabs(labels=("Tab 1", "Tab 2"), active=0, key=""):
     """
     _ensure_global_tabs_styles()
 
-    code_uid = WidgetsManager.get_code_uid("Tabs", key=key or "|".join(map(str, labels)))
+    code_uid = WidgetsManager.get_code_uid("Tabs", key=key or "|".join(map(str, labels)), 
+                kwargs=dict(labels=labels))
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         box, outs, _header, _panels = cached

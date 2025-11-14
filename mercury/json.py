@@ -6,7 +6,7 @@ from .theme import THEME
 
 
 def JSON(*args, key="", **kwargs):
-    code_uid = WidgetsManager.get_code_uid("JSON", key=key)
+    code_uid = WidgetsManager.get_code_uid("JSON", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)        

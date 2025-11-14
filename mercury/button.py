@@ -12,7 +12,7 @@ def Button(*args, key: str = "", **kwargs):
     Usage:
         btn = Button(label="Run", variant="primary", size="md")
     """
-    code_uid = WidgetsManager.get_code_uid("Button", key=key)
+    code_uid = WidgetsManager.get_code_uid("Button", key=key, args=args, kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         display(cached)

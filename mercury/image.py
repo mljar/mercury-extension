@@ -110,7 +110,10 @@ def ImageCard(src: str, caption: str = "",
     """
     _ensure_global_image_styles()
 
-    code_uid = WidgetsManager.get_code_uid("ImageCard", key=key or src or "image")
+    code_uid = WidgetsManager.get_code_uid("ImageCard", key=key or src or "image", 
+                kwargs=dict(src=src, caption=caption, width=width, 
+                height=height, rounded=rounded, show_border=show_border
+                ))
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         card = cached

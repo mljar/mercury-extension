@@ -77,7 +77,14 @@ def Columns(
     key : str
         Cache key for reuse.
     """
-    code_uid = WidgetsManager.get_code_uid("Columns", key=key)
+    kwargs = {
+        "n": n,
+        "min_width": min_width,
+        "gap": gap,
+        "border": border,
+        "position": position,
+    }
+    code_uid = WidgetsManager.get_code_uid("Columns", key=key, args=[], kwargs=kwargs)
     cached = WidgetsManager.get_widget(code_uid)
     if cached:
         box, outs = cached
